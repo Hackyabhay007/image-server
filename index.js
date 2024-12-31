@@ -12,18 +12,6 @@ app.use(cors({
 }));
 
 console.log(API_KEYS);
-
-// Middleware to check API key
-const authenticateApiKey = (req, res, next) => {
-  const apiKey = req.header('Authorization')?.split(' ')[1]; // Extract key from Authorization header
-  if (!apiKey || !API_KEYS.includes(apiKey)) {
-    return res.status(401).json({ message: 'Unauthorized: Invalid API Key' });
-  }
-  next(); // Continue to the requested route
-};
-
-app.use(authenticateApiKey); // Use this middleware for all routes
-
 // Multer configuration
 const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory
 
@@ -41,6 +29,19 @@ app.get("/image/:filename", (req, res) => {
         res.sendFile(imagePath, { root: __dirname });
     });
 });
+
+// Middleware to check API key
+const authenticateApiKey = (req, res, next) => {
+  const apiKey = req.header('Authorization')?.split(' ')[1]; // Extract key from Authorization header
+  if (!apiKey || !API_KEYS.includes(apiKey)) {
+    return res.status(401).json({ message: 'Unauthorized: Invalid API Key' });
+  }
+  next(); // Continue to the requested route
+};
+
+app.use(authenticateApiKey); // Use this middleware for all routes
+
+
 app.post("/upload", upload.single("image"), async (req, res) => {
   try {
     // console.log(req.file);
