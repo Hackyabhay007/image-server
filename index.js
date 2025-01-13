@@ -5,6 +5,7 @@ const fs = require("fs");
 const  app = express();
 require('dotenv').config();
 const API_KEYS = [process.env.API_KEYS]; // Store your valid API keys here
+const ffmpeg = require("fluent-ffmpeg");
 const cors = require('cors');
 
 app.use(cors({
@@ -14,6 +15,20 @@ app.use(cors({
 console.log(API_KEYS);
 // Multer configuration
 const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory
+
+// Route to serve compressed videos
+app.get("/video/:filename", (req, res) => {
+  const filename = req.params.filename;
+  const videoPath = `./uploads/${filename}`;
+
+  fs.access(videoPath, fs.constants.F_OK, (err) => {
+    if (err) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    res.sendFile(videoPath, { root: __dirname });
+  });
+});
 
 // Route to handle image upload and processing
 
@@ -42,12 +57,14 @@ const authenticateApiKey = (req, res, next) => {
 app.use(authenticateApiKey); // Use this middleware for all routes
 
 
-app.post("/upload", upload.single("image"), async (req, res) => {
+app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
   try {
     // console.log(req.file);
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
     }
+
+    const {quality} = req.params
 
 
     // Get image buffer from uploaded file
@@ -70,7 +87,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
             new FromFile(
               `${imagePath}`
             ), // Save branch result
-            new MozJPEG(80) // JPEG quality 80%
+            new MozJPEG(quality | 80) // JPEG quality 80%
           )
       )
       .constrainWithin(100, 100); // Final resize to 100x100
@@ -97,6 +114,55 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     res.status(500).json({ error: "Failed to process image" });
   }
 });
+
+
+// Multer configuration for video
+const videoUpload = multer({ storage: multer.memoryStorage() }); // Store video in memory
+
+// Route to handle video upload and compression
+app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No video provided" });
+    }
+
+    // Get video buffer and metadata
+    const videoBuffer = req.file.buffer;
+    const videoName = `${req.file.originalname.split(".")[0]}-${Date.now()}.mp4`;
+    const videoPath = `./uploads/${videoName}`;
+    const compressedVideoPath = `./uploads/compressed-${videoName}`;
+    const responseVideoPath = `${process.env.BASE_URL}/video/${videoName}`;
+
+    // Save the video buffer to a temporary file
+    fs.writeFileSync(videoPath, videoBuffer);
+
+    // Use ffmpeg to compress the video
+    ffmpeg(videoPath)
+      .output(compressedVideoPath)
+      .videoCodec("libx264")
+      .size("50%") // Reduce video size to 50% of the original
+      .on("end", () => {
+        console.log("Video compression complete");
+        
+        // Optional: Remove the original video after compression
+        fs.unlinkSync(videoPath);
+
+        // Send the URL of the compressed video
+        res.send({ url: responseVideoPath.replace(videoName, `compressed-${videoName}`) });
+      })
+      .on("error", (err) => {
+        console.error("Error compressing video:", err);
+        res.status(500).json({ error: "Failed to compress video" });
+      })
+      .run();
+  } catch (error) {
+    console.error("Error uploading video:", error);
+    res.status(500).json({ error: "Failed to process video" });
+  }
+});
+
+
+
 
 // Start the server
 const PORT = process.env.PORT || 3000;
