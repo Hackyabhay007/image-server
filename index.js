@@ -31,6 +31,21 @@ app.get("/image/:filename", (req, res) => {
     });
 });
 
+// Route to serve compressed videos
+app.get("/video/:filename", (req, res) => {
+  const filename = req.params.filename;
+  const videoPath = `./uploads/${filename}`;
+
+  fs.access(videoPath, fs.constants.F_OK, (err) => {
+    if (err) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    res.sendFile(videoPath, { root: __dirname });
+  });
+});
+
+
 // Middleware to check API key
 const authenticateApiKey = (req, res, next) => {
   const apiKey = req.header('Authorization')?.split(' ')[1]; // Extract key from Authorization header
