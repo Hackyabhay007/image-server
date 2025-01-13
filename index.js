@@ -5,8 +5,8 @@ const fs = require("fs");
 const  app = express();
 require('dotenv').config();
 const API_KEYS = [process.env.API_KEYS]; // Store your valid API keys here
-const ffmpeg = require("fluent-ffmpeg");
 const cors = require('cors');
+const ffmpeg = require("fluent-ffmpeg");
 
 app.use(cors({
     origin: '*'
@@ -15,20 +15,6 @@ app.use(cors({
 console.log(API_KEYS);
 // Multer configuration
 const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory
-
-// Route to serve compressed videos
-app.get("/video/:filename", (req, res) => {
-  const filename = req.params.filename;
-  const videoPath = `./uploads/${filename}`;
-
-  fs.access(videoPath, fs.constants.F_OK, (err) => {
-    if (err) {
-      return res.status(404).json({ error: "Video not found" });
-    }
-
-    res.sendFile(videoPath, { root: __dirname });
-  });
-});
 
 // Route to handle image upload and processing
 
@@ -57,14 +43,12 @@ const authenticateApiKey = (req, res, next) => {
 app.use(authenticateApiKey); // Use this middleware for all routes
 
 
-app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
+app.post("/upload", upload.single("image"), async (req, res) => {
   try {
     // console.log(req.file);
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
     }
-
-    const {quality} = req.params
 
 
     // Get image buffer from uploaded file
@@ -87,7 +71,7 @@ app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
             new FromFile(
               `${imagePath}`
             ), // Save branch result
-            new MozJPEG(quality | 80) // JPEG quality 80%
+            new MozJPEG(80) // JPEG quality 80%
           )
       )
       .constrainWithin(100, 100); // Final resize to 100x100
@@ -114,6 +98,7 @@ app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
     res.status(500).json({ error: "Failed to process image" });
   }
 });
+
 
 
 // Multer configuration for video
@@ -160,8 +145,6 @@ app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
     res.status(500).json({ error: "Failed to process video" });
   }
 });
-
-
 
 
 // Start the server
