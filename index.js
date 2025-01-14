@@ -58,63 +58,44 @@ const authenticateApiKey = (req, res, next) => {
 app.use(authenticateApiKey); // Use this middleware for all routes
 
 
-app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
+app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
   try {
-
-    const {quality} = req.params
-    // console.log(req.file);
+    const { quality } = req.params;
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
     }
-    const qualityValue = parseInt(quality, 10) || 80;
+    const qualityValue = parseInt(quality, 10) || 80; // Default to 80 if not provided
     if (qualityValue < 1 || qualityValue > 100) {
       return res.status(400).json({ error: "Quality must be between 1 and 100" });
     }
 
-
-    // Get image buffer from uploaded file
     const imageBuffer = req.file.buffer;
     const image = `${req.file.originalname}-${Date.now()}.jpg`;
     const imagePath = `./uploads/${image}`;
     const responseimge = `${process.env.BASE_URL}/image/${image}`;
-    
 
-
-    // Processing the image using imageflow
     let step = new Steps(new FromBuffer(imageBuffer))
-      .constrainWithin(1000, 1000) // Resize to 1000x1000
+      .constrainWithin(1000, 1000)
       .branch((step) =>
         step
-          .constrainWithin(900, 900) // Resize within 900x900
-          .constrainWithin(800, 800) // Resize within 800x800
-          // .rotate90() // Rotate the image 90 degrees
-          // .colorFilterGrayscaleFlat() // Apply grayscale
+          .constrainWithin(900, 900)
+          .constrainWithin(800, 800)
           .encode(new FromFile(imagePath), new MozJPEG(qualityValue))
       )
-      .constrainWithin(100, 100); // Final resize to 100x100
+      .constrainWithin(100, 100);
 
-    // Execute processing and encode to a buffer
     const result = await step
-      .encode(new FromBuffer(null, "key"), new MozJPEG(80)) // Encode to memory buffer
+      .encode(new FromBuffer(null, "key"), new MozJPEG(80))
       .execute();
 
-    //   console.log(result.key);
-    // Send processed image result as a response
-    console.log("Processing complete, sending response...");
-
-    //if you want to send the image as a response
-    // res.set("Content-Type", "image/jpeg");
-    // res.send(result.buffer);
-
-    // if you want to save the image to a file
-    // Save responseimgepath to your database here
-    res.send(responseimge); // Send the processed image as the response
+    res.send(responseimge);
 
   } catch (error) {
     console.error("Error processing image:", error);
     res.status(500).json({ error: "Failed to process image" });
   }
 });
+
 
 
 
