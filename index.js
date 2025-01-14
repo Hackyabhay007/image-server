@@ -66,6 +66,10 @@ app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
     }
+    const qualityValue = parseInt(quality, 10) || 80;
+    if (qualityValue < 1 || qualityValue > 100) {
+      return res.status(400).json({ error: "Quality must be between 1 and 100" });
+    }
 
 
     // Get image buffer from uploaded file
@@ -73,6 +77,7 @@ app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
     const image = `${req.file.originalname}-${Date.now()}.jpg`;
     const imagePath = `./uploads/${image}`;
     const responseimge = `${process.env.BASE_URL}/image/${image}`;
+    
 
 
     // Processing the image using imageflow
@@ -84,12 +89,7 @@ app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
           .constrainWithin(800, 800) // Resize within 800x800
           // .rotate90() // Rotate the image 90 degrees
           // .colorFilterGrayscaleFlat() // Apply grayscale
-          .encode(
-            new FromFile(
-              `${imagePath}`
-            ), // Save branch result
-            new MozJPEG(quality | 80) // JPEG quality 80%
-          )
+          .encode(new FromFile(imagePath), new MozJPEG(qualityValue))
       )
       .constrainWithin(100, 100); // Final resize to 100x100
 
