@@ -58,8 +58,10 @@ const authenticateApiKey = (req, res, next) => {
 app.use(authenticateApiKey); // Use this middleware for all routes
 
 
-app.post("/upload", upload.single("image"), async (req, res) => {
+app.post("/upload/?:quality", upload.single("image"), async (req, res) => {
   try {
+
+    const {quality} = req.params
     // console.log(req.file);
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
@@ -86,7 +88,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
             new FromFile(
               `${imagePath}`
             ), // Save branch result
-            new MozJPEG(80) // JPEG quality 80%
+            new MozJPEG(quality | 80) // JPEG quality 80%
           )
       )
       .constrainWithin(100, 100); // Final resize to 100x100
