@@ -114,7 +114,7 @@ app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
     const imageBuffer = req.file.buffer;
     const image = `${req.file.originalname}-${Date.now()}.jpg`;
     const imagePath = path.join(imageDir, image);
-    const responseImage = `${process.env.BASE_URL}/image/${image}`;
+    const responseImage = `image/${image}`;
 
     let step = new Steps(new FromBuffer(imageBuffer))
       .constrainWithin(1000, 1000)
@@ -154,7 +154,7 @@ app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
     }-${Date.now()}.mp4`;
     const videoPath = path.join(videoDir, videoName);
     const compressedVideoPath = path.join(videoDir, `compressed-${videoName}`);
-    const responseVideoPath = `${process.env.BASE_URL}/video/compressed-${videoName}`;
+    const responseVideoPath = `video/compressed-${videoName}`;
 
     // Save the video buffer to a temporary file
     fs.writeFileSync(videoPath, videoBuffer);
@@ -171,7 +171,7 @@ app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
         fs.unlinkSync(videoPath);
 
         // Send the URL of the compressed video
-        res.send({ url: responseVideoPath });
+        res.send(responseVideoPath);
       })
       .on("error", (err) => {
         console.error("Error compressing video:", err);
