@@ -74,6 +74,33 @@ try {
 
 app.get("/image/:filename", (req, res) => {
   const filename = req.params.filename;
+  // Check multiple possible locations for image files
+  const possiblePaths = [
+    `./uploads/${filename}`, // Default location
+    `./uploads/images/${filename}`, // Plural directory
+    `./uploads/image/${filename}`, // Singular directory
+  ];
+
+  console.log(`Looking for image: ${filename}`);
+
+  // Try each path until we find the file
+  let fileFound = false;
+
+  for (const imagePath of possiblePaths) {
+    console.log(`Checking path: ${imagePath}`);
+
+    if (fs.existsSync(imagePath)) {
+      console.log(`Image found at: ${imagePath}`);
+      fileFound = true;
+      return res.sendFile(imagePath, { root: __dirname });
+    }
+  }
+
+  // If we've tried all paths and found nothing
+  if (!fileFound) {
+    console.log(`Image not found: ${filename}`);
+    return res.status(404).json({ error: "Image not found" });
+  }
   const imagePath = `./uploads/${filename}`;
 
   fs.access(imagePath, fs.constants.F_OK, (err) => {
