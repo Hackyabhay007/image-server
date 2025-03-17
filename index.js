@@ -204,7 +204,7 @@ app.get("/media", (req, res) => {
               // Return with default values if stats fail
               return {
                 filename: file,
-                url: `${req.protocol}://${req.get("host")}/image/${file}`,
+                url: `https://${req.get("host")}/image/${file}`,
                 created: new Date(),
                 size: 0,
                 type: "image",
@@ -213,7 +213,7 @@ app.get("/media", (req, res) => {
 
             return {
               filename: file,
-              url: `${req.protocol}://${req.get("host")}/image/${file}`,
+              url: `https://${req.get("host")}/image/${file}`,
               created: stats.birthtime,
               size: stats.size,
               type: "image",
@@ -256,7 +256,7 @@ app.get("/media", (req, res) => {
               // Return with default values if stats fail
               return {
                 filename: file,
-                url: `${req.protocol}://${req.get("host")}/video/${file}`,
+                url: `https://${req.get("host")}/video/${file}`,
                 created: new Date(),
                 size: 0,
                 type: "video",
@@ -265,7 +265,7 @@ app.get("/media", (req, res) => {
 
             return {
               filename: file,
-              url: `${req.protocol}://${req.get("host")}/video/${file}`,
+              url: `https://${req.get("host")}/video/${file}`,
               created: stats.birthtime,
               size: stats.size,
               type: "video",
