@@ -85,6 +85,8 @@ app.get("/image/:filename", (req, res) => {
   });
 });
 
+
+
 // Update the video route to check multiple possible locations
 app.get("/video/:filename", (req, res) => {
   const filename = decodeURIComponent(req.params.filename);
@@ -129,6 +131,127 @@ const authenticateApiKey = (req, res, next) => {
 };
 
 app.use(authenticateApiKey); // Use this middleware for all routes
+
+
+// Route to get all media (both images and videos) with pagination
+app.get("/media", (req, res) => {
+  try {
+    // Get pagination parameters from query string
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Get sort parameter
+    const sortBy = req.query.sort || "newest";
+    // Get filter parameter (optional)
+    const filterType = req.query.type || "all"; // 'all', 'image', or 'video'
+
+    // Get all media files from both directories
+    Promise.all([
+      new Promise((resolve, reject) => {
+        fs.readdir(imageDir, (err, files) => {
+          if (err) {
+            console.error("Error reading image directory:", err);
+            reject(err);
+            return;
+          }
+
+          // Filter to include only image files
+          const imageFiles = files.filter((file) => {
+            const ext = path.extname(file).toLowerCase();
+            return [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext);
+          });
+
+          // Map files to details
+          const imageDetails = imageFiles.map((file) => {
+            const filePath = path.join(imageDir, file);
+            const stats = fs.statSync(filePath);
+
+            return {
+              filename: file,
+              url: `https://${req.get("host")}/image/${file}`,
+              created: stats.birthtime,
+              size: stats.size,
+              type: "image",
+            };
+          });
+
+          resolve(imageDetails);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        fs.readdir(videoDir, (err, files) => {
+          if (err) {
+            console.error("Error reading video directory:", err);
+            reject(err);
+            return;
+          }
+
+          // Filter to include only video files
+          const videoFiles = files.filter((file) => {
+            const ext = path.extname(file).toLowerCase();
+            return [".mp4", ".avi", ".mov", ".webm", ".mkv"].includes(ext);
+          });
+
+          // Map files to details
+          const videoDetails = videoFiles.map((file) => {
+            const filePath = path.join(videoDir, file);
+            const stats = fs.statSync(filePath);
+
+            return {
+              filename: file,
+              url: `https://${req.get("host")}/video/${file}`,
+              created: stats.birthtime,
+              size: stats.size,
+              type: "video",
+            };
+          });
+
+          resolve(videoDetails);
+        });
+      }),
+    ])
+      .then((results) => {
+        let [imageDetails, videoDetails] = results;
+        let allMedia = [];
+
+        // Apply type filter if specified
+        if (filterType === "image") {
+          allMedia = imageDetails;
+        } else if (filterType === "video") {
+          allMedia = videoDetails;
+        } else {
+          // Default: all media
+          allMedia = [...imageDetails, ...videoDetails];
+        }
+
+        // Sort the media based on the sort parameter
+        if (sortBy === "oldest") {
+          allMedia.sort((a, b) => a.created - b.created);
+        } else if (sortBy === "name") {
+          allMedia.sort((a, b) => a.filename.localeCompare(b.filename));
+        } else if (sortBy === "size") {
+          allMedia.sort((a, b) => b.size - a.size);
+        } else if (sortBy === "type") {
+          allMedia.sort((a, b) => a.type.localeCompare(b.type));
+        } else {
+          // Default: newest
+          allMedia.sort((a, b) => b.created - a.created);
+        }
+
+        // Paginate the results
+        const paginatedResults = paginateResults(allMedia, page, limit);
+
+        res.json(paginatedResults);
+      })
+      .catch((error) => {
+        console.error("Error retrieving media files:", error);
+        res.status(500).json({ error: "Failed to retrieve media files" });
+      });
+  } catch (error) {
+    console.error("Error processing media list request:", error);
+    res.status(500).json({ error: "Failed to retrieve media" });
+  }
+});
 
 app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
   try {
