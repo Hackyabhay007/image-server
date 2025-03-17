@@ -85,8 +85,6 @@ app.get("/image/:filename", (req, res) => {
   });
 });
 
-
-
 // Update the video route to check multiple possible locations
 app.get("/video/:filename", (req, res) => {
   const filename = decodeURIComponent(req.params.filename);
@@ -132,6 +130,39 @@ const authenticateApiKey = (req, res, next) => {
 
 app.use(authenticateApiKey); // Use this middleware for all routes
 
+// Define directory variables consistently
+const imageDir = "./uploads"; // Where images are stored
+const videoDir = "./uploads/video"; // Where videos are stored
+
+// Helper function for pagination if not already defined
+const paginateResults = (items, page, limit) => {
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+
+  const results = {};
+
+  // Add pagination metadata
+  if (endIndex < items.length) {
+    results.next = {
+      page: page + 1,
+      limit: limit,
+    };
+  }
+
+  if (startIndex > 0) {
+    results.previous = {
+      page: page - 1,
+      limit: limit,
+    };
+  }
+
+  results.total = items.length;
+  results.pages = Math.ceil(items.length / limit);
+  results.currentPage = page;
+  results.results = items.slice(startIndex, endIndex);
+
+  return results;
+};
 
 // Route to get all media (both images and videos) with pagination
 app.get("/media", (req, res) => {
@@ -151,7 +182,7 @@ app.get("/media", (req, res) => {
         fs.readdir(imageDir, (err, files) => {
           if (err) {
             console.error("Error reading image directory:", err);
-            reject(err);
+            resolve([]); // Resolve with empty array instead of rejecting
             return;
           }
 
@@ -164,11 +195,25 @@ app.get("/media", (req, res) => {
           // Map files to details
           const imageDetails = imageFiles.map((file) => {
             const filePath = path.join(imageDir, file);
-            const stats = fs.statSync(filePath);
+            let stats;
+
+            try {
+              stats = fs.statSync(filePath);
+            } catch (err) {
+              console.error(`Error getting stats for ${filePath}:`, err);
+              // Return with default values if stats fail
+              return {
+                filename: file,
+                url: `${req.protocol}://${req.get("host")}/image/${file}`,
+                created: new Date(),
+                size: 0,
+                type: "image",
+              };
+            }
 
             return {
               filename: file,
-              url: `https://${req.get("host")}/image/${file}`,
+              url: `${req.protocol}://${req.get("host")}/image/${file}`,
               created: stats.birthtime,
               size: stats.size,
               type: "image",
@@ -179,10 +224,17 @@ app.get("/media", (req, res) => {
         });
       }),
       new Promise((resolve, reject) => {
+        // Create video directory if it doesn't exist
+        if (!fs.existsSync(videoDir)) {
+          fs.mkdirSync(videoDir, { recursive: true });
+          resolve([]);
+          return;
+        }
+
         fs.readdir(videoDir, (err, files) => {
           if (err) {
             console.error("Error reading video directory:", err);
-            reject(err);
+            resolve([]); // Resolve with empty array instead of rejecting
             return;
           }
 
@@ -195,11 +247,25 @@ app.get("/media", (req, res) => {
           // Map files to details
           const videoDetails = videoFiles.map((file) => {
             const filePath = path.join(videoDir, file);
-            const stats = fs.statSync(filePath);
+            let stats;
+
+            try {
+              stats = fs.statSync(filePath);
+            } catch (err) {
+              console.error(`Error getting stats for ${filePath}:`, err);
+              // Return with default values if stats fail
+              return {
+                filename: file,
+                url: `${req.protocol}://${req.get("host")}/video/${file}`,
+                created: new Date(),
+                size: 0,
+                type: "video",
+              };
+            }
 
             return {
               filename: file,
-              url: `https://${req.get("host")}/video/${file}`,
+              url: `${req.protocol}://${req.get("host")}/video/${file}`,
               created: stats.birthtime,
               size: stats.size,
               type: "video",
