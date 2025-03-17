@@ -270,7 +270,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/image/${file}`,
+                    url: `https://${req.get("host")}/image/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "image",
@@ -322,7 +322,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/video/${file}`,
+                    url: `https://${req.get("host")}/video/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "video",
