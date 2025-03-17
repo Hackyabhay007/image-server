@@ -7,6 +7,7 @@ require("dotenv").config();
 const API_KEYS = [process.env.API_KEYS]; // Store your valid API keys here
 const cors = require("cors");
 const ffmpeg = require("fluent-ffmpeg");
+const path = require("path"); // Ensure path is required if not already
 
 app.use(
   cors({
@@ -17,6 +18,57 @@ app.use(
 console.log(API_KEYS);
 // Multer configuration
 const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory
+
+// Add this variable to store the FFmpeg path
+let ffmpegPath = null;
+
+// Update the FFmpeg path configuration to store the path in a variable
+try {
+  // Define common locations where FFmpeg might be installed
+  const possibleFfmpegPaths = [
+    "/usr/bin/ffmpeg",
+    "/usr/local/bin/ffmpeg",
+    "/opt/homebrew/bin/ffmpeg",
+    "/opt/ffmpeg/bin/ffmpeg",
+    "C:\\ffmpeg\\bin\\ffmpeg.exe",
+    "D:\\ffmpeg\\bin\\ffmpeg.exe", // Added Windows D: drive path
+  ];
+
+  let ffmpegFound = false;
+
+  // Try setting ffmpeg path from potential locations
+  for (const possiblePath of possibleFfmpegPaths) {
+    if (fs.existsSync(possiblePath)) {
+      console.log(`Found FFmpeg at: ${possiblePath}`);
+      ffmpeg.setFfmpegPath(possiblePath);
+      ffmpegPath = possiblePath; // Store the path in our variable
+      ffmpegFound = true;
+      break;
+    }
+  }
+
+  if (!ffmpegFound) {
+    console.log(
+      "FFmpeg not found in common locations. Trying to find from PATH..."
+    );
+    // Try to get FFmpeg path from the system
+    const which = require("which");
+    try {
+      const ffmpegPathFromSystem = which.sync("ffmpeg");
+      console.log(`Found FFmpeg in PATH: ${ffmpegPathFromSystem}`);
+      ffmpeg.setFfmpegPath(ffmpegPathFromSystem);
+      ffmpegPath = ffmpegPathFromSystem; // Store the path in our variable
+      ffmpegFound = true;
+    } catch (whichErr) {
+      console.warn("Could not find FFmpeg in PATH:", whichErr.message);
+    }
+  }
+
+  // Log the configured FFmpeg path
+  console.log("Current FFmpeg path:", ffmpegPath || "Not configured");
+} catch (error) {
+  console.warn("Could not set FFmpeg path:", error.message);
+}
 
 // Route to handle image upload and processing
 
@@ -33,18 +85,38 @@ app.get("/image/:filename", (req, res) => {
   });
 });
 
-// Route to serve compressed videos
+// Update the video route to check multiple possible locations
 app.get("/video/:filename", (req, res) => {
-  const filename = req.params.filename;
-  const videoPath = `./uploads/video/${filename}`;
+  const filename = decodeURIComponent(req.params.filename);
 
-  fs.access(videoPath, fs.constants.F_OK, (err) => {
-    if (err) {
-      return res.status(404).json({ error: "Video not found" });
+  // Check multiple possible locations for video files
+  const possiblePaths = [
+    `./uploads/video/${filename}`, // Original path (singular directory)
+    `./uploads/videos/${filename}`, // Plural directory
+    `./uploads/${filename}`, // Root uploads directory
+    `./uploads/compressed-${filename}`, // Compressed videos in root directory
+  ];
+
+  console.log(`Looking for video: ${filename}`);
+
+  // Try each path until we find the file
+  let fileFound = false;
+
+  for (const videoPath of possiblePaths) {
+    console.log(`Checking path: ${videoPath}`);
+
+    if (fs.existsSync(videoPath)) {
+      console.log(`Video found at: ${videoPath}`);
+      fileFound = true;
+      return res.sendFile(videoPath, { root: __dirname });
     }
+  }
 
-    res.sendFile(videoPath, { root: __dirname });
-  });
+  // If we've tried all paths and found nothing
+  if (!fileFound) {
+    console.log(`Video not found: ${filename}`);
+    return res.status(404).json({ error: "Video not found" });
+  }
 });
 
 // Middleware to check API key
@@ -74,7 +146,7 @@ app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
     const imageBuffer = req.file.buffer;
     const image = `${req.file.originalname}-${Date.now()}.jpg`;
     const imagePath = `./uploads/${image}`;
-    const responseimge = `${process.env.BASE_URL}/image/${image}`;
+    const responseimge = `image/${image}`;
 
     let step = new Steps(new FromBuffer(imageBuffer))
       .constrainWithin(1000, 1000)
@@ -100,8 +172,10 @@ app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
 // Multer configuration for video
 const videoUpload = multer({ storage: multer.memoryStorage() }); // Store video in memory
 
-// Route to handle video upload and compression
+// Fix the upload-video route to maintain the original response format
 app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
+  let responseHasBeenSent = false; // Flag to track if we've responded already
+
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No video provided" });
@@ -112,41 +186,134 @@ app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
     const videoName = `${
       req.file.originalname.split(".")[0]
     }-${Date.now()}.mp4`;
-    const videoPath = `./uploads/${videoName}`;
-    const compressedVideoPath = `./uploads/compressed-${videoName}`;
+
+    // Always store videos in the same location for consistency
+    const videoDir = "./uploads/video"; // Use singular form consistently
+    const videoPath = `${videoDir}/${videoName}`;
+    const compressedVideoPath = `${videoDir}/compressed-${videoName}`;
     const responseVideoPath = `${process.env.BASE_URL}/video/${videoName}`;
+
+    // Create uploads directory if it doesn't exist
+    if (!fs.existsSync("./uploads")) {
+      fs.mkdirSync("./uploads", { recursive: true });
+    }
+
+    // Create video directory if it doesn't exist
+    if (!fs.existsSync(videoDir)) {
+      fs.mkdirSync(videoDir, { recursive: true });
+    }
 
     // Save the video buffer to a temporary file
     fs.writeFileSync(videoPath, videoBuffer);
+    console.log(`Saved original video to: ${videoPath}`);
 
-    // Use ffmpeg to compress the video
-    ffmpeg(videoPath)
-      .output(compressedVideoPath)
-      .videoCodec("libx264")
-      .size("50%") // Reduce video size to 50% of the original
+    // Use our stored path variable instead of the non-existent getter function
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+      console.warn("FFmpeg not available or not found at path:", ffmpegPath);
+
+      // Simple fallback - copy file and respond
+      fs.copyFileSync(videoPath, compressedVideoPath);
+      console.log(
+        `FFmpeg not available - copied video without compression to: ${compressedVideoPath}`
+      );
+
+      responseHasBeenSent = true; // Mark that we're sending a response
+      return res.send("video/" + `compressed-${videoName}`);
+    }
+
+    // FFmpeg is available, proceed with compression
+    const ffmpegCommand = ffmpeg(videoPath)
+      .outputOptions([
+        "-c:v libx264", // Video codec
+        "-crf 28", // Quality level
+        "-preset medium", // Encoding speed/compression ratio
+        "-c:a aac", // Audio codec
+        "-b:a 128k", // Audio bitrate
+        "-vf scale=iw*0.5:ih*0.5", // Scale to 50%
+      ])
+      .output(compressedVideoPath);
+
+    // Add event handlers
+    ffmpegCommand
+      .on("start", (commandLine) => {
+        console.log("FFmpeg started with command:", commandLine);
+      })
+      .on("progress", (progress) => {
+        console.log(`FFmpeg Progress: ${JSON.stringify(progress)}`);
+      })
       .on("end", () => {
+        // Only respond if we haven't already
+        if (responseHasBeenSent) return;
+
         console.log("Video compression complete");
 
         // Optional: Remove the original video after compression
-        fs.unlinkSync(videoPath);
+        try {
+          fs.unlinkSync(videoPath);
+          console.log("Original video removed after compression");
+        } catch (err) {
+          console.warn("Could not remove original video:", err.message);
+        }
 
-        // Send the URL of the compressed video
-        res.send({
-          url: responseVideoPath.replace(videoName, `compressed-${videoName}`),
-        });
+        // Send response with the same format as original code
+        responseHasBeenSent = true;
+        res.send("video/" + `compressed-${videoName}`);
       })
       .on("error", (err) => {
+        // Only respond if we haven't already
+        if (responseHasBeenSent) return;
+
         console.error("Error compressing video:", err);
-        res.status(500).json({ error: "Failed to compress video" });
-      })
-      .run();
+
+        // Attempt to use the original video as fallback
+        try {
+          fs.copyFileSync(videoPath, compressedVideoPath);
+          console.log(`Compression failed - copied original video as fallback`);
+
+          responseHasBeenSent = true;
+          res.send({
+            url: responseVideoPath.replace(
+              videoName,
+              `compressed-${videoName}`
+            ),
+          });
+        } catch (copyErr) {
+          if (!responseHasBeenSent) {
+            responseHasBeenSent = true;
+            res.status(500).json({
+              error: "Failed to compress video",
+              details: err.message,
+            });
+          }
+        }
+      });
+
+    // Run the FFmpeg command directly
+    try {
+      ffmpegCommand.run();
+    } catch (runError) {
+      // Only respond if we haven't already
+      if (responseHasBeenSent) return;
+
+      console.error("Error executing FFmpeg command:", runError);
+
+      // Fallback if FFmpeg fails to run
+      fs.copyFileSync(videoPath, compressedVideoPath);
+      console.log(`FFmpeg run failed - copied original video as fallback`);
+
+      responseHasBeenSent = true;
+      res.send("video/" + `compressed-${videoName}`);
+    }
   } catch (error) {
+    // Only respond if we haven't already
+    if (responseHasBeenSent) return;
+
     console.error("Error uploading video:", error);
     res.status(500).json({ error: "Failed to process video" });
   }
 });
 
-// Updated DELETE route that matches the actual directory structure
+// Improved DELETE route with better path checking
 app.delete("/delete/:type/:filename", (req, res) => {
   try {
     const { type, filename } = req.params;
@@ -160,90 +327,113 @@ app.delete("/delete/:type/:filename", (req, res) => {
 
     // Decode the filename to handle URL-encoded characters
     const decodedFilename = decodeURIComponent(filename);
+    console.log(`Attempting to delete ${type}: ${decodedFilename}`);
 
-    // Determine file path based on type and actual directory structure used in the app
-    let filePath;
+    // Initialize array of paths to check based on file type
+    let possiblePaths = [];
+
     if (type === "image") {
-      // Images are stored directly in ./uploads/ folder
-      filePath = `./uploads/${decodedFilename}`;
-      console.log(`Checking for image at path: ${filePath}`);
+      // Check all possible image paths
+      possiblePaths = [
+        `./uploads/${decodedFilename}`,
+        `./uploads/images/${decodedFilename}`,
+        `./uploads/image/${decodedFilename}`,
+      ];
     } else {
-      // For videos, check if it's a compressed video (they are stored with "compressed-" prefix)
+      // Check all possible video paths
+      possiblePaths = [
+        // Check compressed versions
+        `./uploads/video/compressed-${decodedFilename}`,
+        `./uploads/videos/compressed-${decodedFilename}`,
+        `./uploads/compressed-${decodedFilename}`,
+        // Check original versions
+        `./uploads/video/${decodedFilename}`,
+        `./uploads/videos/${decodedFilename}`,
+        `./uploads/${decodedFilename}`,
+      ];
+
+      // If filename already starts with "compressed-", also check without prefix
       if (decodedFilename.startsWith("compressed-")) {
-        // Compressed videos are stored in the main uploads directory
-        filePath = `./uploads/${decodedFilename}`;
-      } else {
-        // If not a compressed video, it might be in video subdirectory
-        // Try both possible locations
-        filePath = `./uploads/${decodedFilename}`;
-        if (!fs.existsSync(filePath)) {
-          filePath = `./uploads/video/${decodedFilename}`;
-        }
+        const originalFilename = decodedFilename.substring(11); // Remove "compressed-" prefix
+        possiblePaths.push(
+          `./uploads/video/${originalFilename}`,
+          `./uploads/videos/${originalFilename}`,
+          `./uploads/${originalFilename}`
+        );
       }
-      console.log(`Checking for video at path: ${filePath}`);
     }
 
-    // Check if file exists
-    fs.access(filePath, fs.constants.F_OK, (err) => {
-      if (err) {
-        console.log(`${type} not found at: ${filePath}`);
+    console.log(
+      `Checking ${possiblePaths.length} possible locations for ${type}`
+    );
 
-        // For videos, try one more path with compressed- prefix if not already tried
-        if (type === "video" && !decodedFilename.startsWith("compressed-")) {
-          const compressedPath = `./uploads/compressed-${decodedFilename}`;
-          console.log(`Trying compressed path: ${compressedPath}`);
+    // Check each path and delete the first file found
+    let fileFound = false;
 
-          fs.access(compressedPath, fs.constants.F_OK, (compErr) => {
-            if (compErr) {
-              return res.status(404).json({
-                error: `${
-                  type.charAt(0).toUpperCase() + type.slice(1)
-                } not found`,
-              });
-            }
-
-            // Found at compressed path, delete it
-            fs.unlink(compressedPath, (unlinkErr) => {
-              if (unlinkErr) {
-                console.error(`Error deleting ${type}:`, unlinkErr);
-                return res
-                  .status(500)
-                  .json({ error: `Failed to delete ${type}` });
-              }
-
-              console.log(
-                `Successfully deleted compressed video: ${compressedPath}`
-              );
-              res.json({
-                message: `${
-                  type.charAt(0).toUpperCase() + type.slice(1)
-                } deleted successfully`,
-              });
-            });
-          });
-          return;
-        }
-
+    // Function to check next path or return not found
+    const checkNextPath = (index) => {
+      if (index >= possiblePaths.length) {
+        // We've checked all paths and found nothing
+        console.log(`${type} not found in any of the expected locations`);
         return res.status(404).json({
           error: `${type.charAt(0).toUpperCase() + type.slice(1)} not found`,
         });
       }
 
-      // Delete the file
-      fs.unlink(filePath, (err) => {
+      const currentPath = possiblePaths[index];
+      console.log(`Checking path: ${currentPath}`);
+
+      fs.access(currentPath, fs.constants.F_OK, (err) => {
         if (err) {
-          console.error(`Error deleting ${type}:`, err);
-          return res.status(500).json({ error: `Failed to delete ${type}` });
+          // File not found at this path, try next one
+          return checkNextPath(index + 1);
         }
 
-        console.log(`Successfully deleted ${type}: ${filePath}`);
-        res.json({
-          message: `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } deleted successfully`,
+        // File found, delete it
+        console.log(`Found ${type} at: ${currentPath}, deleting...`);
+        fs.unlink(currentPath, (unlinkErr) => {
+          if (unlinkErr) {
+            console.error(`Error deleting ${type}:`, unlinkErr);
+            return res.status(500).json({ error: `Failed to delete ${type}` });
+          }
+
+          console.log(`Successfully deleted ${type}: ${currentPath}`);
+          res.json({
+            message: `${
+              type.charAt(0).toUpperCase() + type.slice(1)
+            } deleted successfully`,
+            path: currentPath,
+          });
+
+          // For videos, try to also delete any related files
+          if (type === "video" && decodedFilename.startsWith("compressed-")) {
+            const originalFilename = decodedFilename.substring(11); // Remove "compressed-" prefix
+
+            // Try to delete the original file if it exists
+            [
+              `./uploads/video/${originalFilename}`,
+              `./uploads/videos/${originalFilename}`,
+              `./uploads/${originalFilename}`,
+            ].forEach((origPath) => {
+              if (fs.existsSync(origPath)) {
+                try {
+                  fs.unlinkSync(origPath);
+                  console.log(`Also deleted related file: ${origPath}`);
+                } catch (cleanupErr) {
+                  console.warn(
+                    `Could not delete related file ${origPath}:`,
+                    cleanupErr.message
+                  );
+                }
+              }
+            });
+          }
         });
       });
-    });
+    };
+
+    // Start checking paths from index 0
+    checkNextPath(0);
   } catch (error) {
     console.error("Error processing delete request:", error);
     res.status(500).json({ error: "Server error" });

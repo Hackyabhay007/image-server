@@ -75,6 +75,15 @@ To verify your FFmpeg installation, run:
 node ffmpeg-check.js
 ```
 
+This server requires FFmpeg for video compression. If you encounter errors related to missing FFmpeg, you can:
+
+1. Run the installation helper script:
+   ```bash
+   node install-ffmpeg.js
+   ```
+
+```
+
 ## Configuration
 
 - **PORT**: Server port (default: 3000)
@@ -86,7 +95,9 @@ node ffmpeg-check.js
 Most routes require authentication via an API key. Include the API key in the `Authorization` header:
 
 ```
+
 Authorization: Bearer YOUR_API_KEY_HERE
+
 ```
 
 API keys are configured in the `.env` file.
@@ -101,7 +112,9 @@ Public routes that don't require authentication:
 ### Get an image
 
 ```
+
 GET /image/:filename
+
 ```
 
 Parameters:
@@ -115,13 +128,17 @@ Query parameters:
 Example:
 
 ```
+
 GET /image/vacation-photo-1615487236547.jpg
+
 ```
 
 ### Get all images (with pagination)
 
 ```
+
 GET /images
+
 ```
 
 Query parameters:
@@ -137,8 +154,10 @@ Query parameters:
 Example:
 
 ```
+
 GET /images?page=2&limit=20&sort=newest
-```
+
+````
 
 Response:
 
@@ -166,7 +185,7 @@ Response:
     "limit": 20
   }
 }
-```
+````
 
 ### Upload an image
 
