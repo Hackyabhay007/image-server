@@ -346,6 +346,8 @@ Response:
 }
 ```
 
+### Delete a media file (image or video)
+
 ## Examples
 
 ### JavaScript Fetch Example (Upload Image)
