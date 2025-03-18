@@ -585,17 +585,17 @@ app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
     const responseimge = `image/${image}`;
 
     let step = new Steps(new FromBuffer(imageBuffer))
-      .constrainWithin(1000, 1000)
+      // .constrainWithin(1000, 1000)
       .branch((step) =>
         step
-          .constrainWithin(900, 900)
-          .constrainWithin(800, 800)
-          .encode(new FromFile(imagePath), new MozJPEG(qualityValue))
+          // .constrainWithin(900, 900)
+          // .constrainWithin(800, 800)
+          .encode(new FromFile(imagePath), new MozJPEG(100))
       )
-      .constrainWithin(100, 100);
+      // .constrainWithin(100, 100);
 
     const result = await step
-      .encode(new FromBuffer(null, "key"), new MozJPEG(80))
+      .encode(new FromBuffer(null, "key"), new MozJPEG(100))
       .execute();
 
     res.send(responseimge);
