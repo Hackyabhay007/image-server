@@ -248,10 +248,14 @@ app.get("/media", (req, res) => {
                 return;
               }
 
-              // Filter to include only image files
+              // Filter to include only image files and exclude client images
               const imageFiles = files.filter((file) => {
                 const ext = path.extname(file).toLowerCase();
-                return [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext);
+                // Add condition to exclude filenames containing "-client"
+                return (
+                  [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext) &&
+                  !file.includes("-client")
+                );
               });
 
               // Map files to details with full path
@@ -437,10 +441,14 @@ app.get("/images", authenticateApiKey, (req, res) => {
         return res.status(500).json({ error: "Failed to retrieve images" });
       }
 
-      // Filter to include only image files
+      // Filter to include only image files and exclude client images
       const imageFiles = files.filter((file) => {
         const ext = path.extname(file).toLowerCase();
-        return [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext);
+        // Add condition to exclude filenames containing "-client"
+        return (
+          [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext) &&
+          !file.includes("-client")
+        );
       });
 
       // Get file details including creation date
@@ -591,8 +599,8 @@ app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
           // .constrainWithin(900, 900)
           // .constrainWithin(800, 800)
           .encode(new FromFile(imagePath), new MozJPEG(100))
-      )
-      // .constrainWithin(100, 100);
+      );
+    // .constrainWithin(100, 100);
 
     const result = await step
       .encode(new FromBuffer(null, "key"), new MozJPEG(100))
