@@ -251,10 +251,11 @@ app.get("/media", (req, res) => {
               // Filter to include only image files and exclude client images
               const imageFiles = files.filter((file) => {
                 const ext = path.extname(file).toLowerCase();
-                // Add condition to exclude filenames containing "-client"
+                // Make the client filter more robust - look for any occurrence of "client"
+                // in the filename, case insensitive
                 return (
                   [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext) &&
-                  !file.includes("-client")
+                  !file.toLowerCase().includes("client")
                 );
               });
 
@@ -444,10 +445,10 @@ app.get("/images", authenticateApiKey, (req, res) => {
       // Filter to include only image files and exclude client images
       const imageFiles = files.filter((file) => {
         const ext = path.extname(file).toLowerCase();
-        // Add condition to exclude filenames containing "-client"
+        // Make the client filter more robust - case insensitive search for "client"
         return (
           [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext) &&
-          !file.includes("-client")
+          !file.toLowerCase().includes("client")
         );
       });
 
