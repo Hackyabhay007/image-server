@@ -191,17 +191,15 @@ const paginateResults = (items, page, limit) => {
   return results;
 };
 
-// Route to get all media (both images and videos) with pagination
+// Route to get all media (images, videos, audio, pdf, docs, etc) with pagination and type filtering
 app.get("/media", (req, res) => {
   try {
-    // Get pagination parameters from query string
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-
-    // Get sort parameter
     const sortBy = req.query.sort || "newest";
-    // Get filter parameter (optional)
-    const filterType = req.query.type || "all"; // 'all', 'image', or 'video'
+    // Support comma-separated types, e.g. type=image,video
+    let filterType = req.query.type || "all";
+    filterType = filterType.split(",").map((t) => t.trim().toLowerCase());
 
     // Define all possible directories to look for media
     const possibleImageDirectories = [
@@ -209,182 +207,294 @@ app.get("/media", (req, res) => {
       "./uploads/images",
       "./uploads/image",
     ];
-
     const possibleVideoDirectories = [
       "./uploads/video",
       "./uploads/videos",
-      "./uploads", // Root uploads folder may contain videos too
+      "./uploads",
+    ];
+    const possibleAudioDirectories = [
+      "./uploads/audio",
+      "./uploads/audios",
+      "./uploads",
+    ];
+    const possiblePdfDirectories = [
+      "./uploads/pdf",
+      "./uploads/pdfs",
+      "./uploads",
+    ];
+    const possibleDocDirectories = [
+      "./uploads/docs",
+      "./uploads/documents",
+      "./uploads",
     ];
 
     // Create all directories that don't exist
-    [...possibleImageDirectories, ...possibleVideoDirectories].forEach(
-      (dir) => {
-        if (!fs.existsSync(dir)) {
-          try {
-            fs.mkdirSync(dir, { recursive: true });
-            console.log(`Created directory: ${dir}`);
-          } catch (err) {
-            console.warn(`Could not create directory ${dir}:`, err.message);
-          }
+    [
+      ...possibleImageDirectories,
+      ...possibleVideoDirectories,
+      ...possibleAudioDirectories,
+      ...possiblePdfDirectories,
+      ...possibleDocDirectories,
+    ].forEach((dir) => {
+      if (!fs.existsSync(dir)) {
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+          console.log(`Created directory: ${dir}`);
+        } catch (err) {
+          console.warn(`Could not create directory ${dir}:`, err.message);
         }
       }
-    );
+    });
 
-    // Get all media files from all possible directories
+    // File type extension maps
+    const typeMap = {
+      image: [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".tiff",
+        ".svg",
+      ],
+      video: [".mp4", ".avi", ".mov", ".webm", ".mkv", ".wmv", ".flv", ".mpeg"],
+      audio: [".mp3", ".wav", ".aac", ".ogg", ".flac", ".m4a", ".wma"],
+      pdf: [".pdf"],
+      doc: [
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".txt",
+        ".rtf",
+        ".odt",
+      ],
+    };
+
+    // Helper to check if a file matches any of the requested types
+    function matchesType(file, types) {
+      const ext = path.extname(file).toLowerCase();
+      if (types.includes("all")) return true;
+      for (const t of types) {
+        if (typeMap[t] && typeMap[t].includes(ext)) return true;
+      }
+      return false;
+    }
+
     Promise.all([
-      // Get all images from possible directories
+      // Images
       Promise.all(
         possibleImageDirectories.map((dir) => {
           return new Promise((resolve) => {
-            if (!fs.existsSync(dir)) {
-              resolve([]);
-              return;
-            }
-
+            if (!fs.existsSync(dir)) return resolve([]);
             fs.readdir(dir, (err, files) => {
-              if (err) {
-                console.error(`Error reading directory ${dir}:`, err);
-                resolve([]);
-                return;
-              }
-
-              // Filter to include only image files and exclude client images
-              const imageFiles = files.filter((file) => {
-                const ext = path.extname(file).toLowerCase();
-                // Make the client filter more robust - look for any occurrence of "client"
-                // in the filename, case insensitive
-                return (
-                  [".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext) &&
+              if (err) return resolve([]);
+              const imageFiles = files.filter(
+                (file) =>
+                  typeMap.image.includes(path.extname(file).toLowerCase()) &&
                   !file.toLowerCase().includes("client")
-                );
-              });
-
-              // Map files to details with full path
+              );
               const imageDetails = imageFiles
                 .map((file) => {
                   const filePath = path.join(dir, file);
                   let stats;
-
                   try {
                     stats = fs.statSync(filePath);
-                  } catch (err) {
-                    console.error(`Error getting stats for ${filePath}:`, err);
+                  } catch {
                     return null;
                   }
-
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/image/${file}`,
+                    url: `${req.protocol}://${req.get("host")}/image/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "image",
                   };
                 })
-                .filter(Boolean); // Remove nulls
-
+                .filter(Boolean);
               resolve(imageDetails);
             });
           });
         })
       ),
-
-      // Get all videos from possible directories
+      // Videos
       Promise.all(
         possibleVideoDirectories.map((dir) => {
           return new Promise((resolve) => {
-            if (!fs.existsSync(dir)) {
-              resolve([]);
-              return;
-            }
-
+            if (!fs.existsSync(dir)) return resolve([]);
             fs.readdir(dir, (err, files) => {
-              if (err) {
-                console.error(`Error reading directory ${dir}:`, err);
-                resolve([]);
-                return;
-              }
-
-              // Filter to include only video files
-              const videoFiles = files.filter((file) => {
-                const ext = path.extname(file).toLowerCase();
-                return [".mp4", ".avi", ".mov", ".webm", ".mkv"].includes(ext);
-              });
-
-              // Map files to details with full path
+              if (err) return resolve([]);
+              const videoFiles = files.filter((file) =>
+                typeMap.video.includes(path.extname(file).toLowerCase())
+              );
               const videoDetails = videoFiles
                 .map((file) => {
                   const filePath = path.join(dir, file);
                   let stats;
-
                   try {
                     stats = fs.statSync(filePath);
-                  } catch (err) {
-                    console.error(`Error getting stats for ${filePath}:`, err);
+                  } catch {
                     return null;
                   }
-
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/video/${file}`,
+                    url: `${req.protocol}://${req.get("host")}/video/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "video",
                   };
                 })
-                .filter(Boolean); // Remove nulls
-
+                .filter(Boolean);
               resolve(videoDetails);
+            });
+          });
+        })
+      ),
+      // Audio
+      Promise.all(
+        possibleAudioDirectories.map((dir) => {
+          return new Promise((resolve) => {
+            if (!fs.existsSync(dir)) return resolve([]);
+            fs.readdir(dir, (err, files) => {
+              if (err) return resolve([]);
+              const audioFiles = files.filter((file) =>
+                typeMap.audio.includes(path.extname(file).toLowerCase())
+              );
+              const audioDetails = audioFiles
+                .map((file) => {
+                  const filePath = path.join(dir, file);
+                  let stats;
+                  try {
+                    stats = fs.statSync(filePath);
+                  } catch {
+                    return null;
+                  }
+                  return {
+                    filename: file,
+                    filepath: filePath,
+                    url: `${req.protocol}://${req.get("host")}/audio/${file}`,
+                    created: stats.birthtime,
+                    size: stats.size,
+                    type: "audio",
+                  };
+                })
+                .filter(Boolean);
+              resolve(audioDetails);
+            });
+          });
+        })
+      ),
+      // PDF
+      Promise.all(
+        possiblePdfDirectories.map((dir) => {
+          return new Promise((resolve) => {
+            if (!fs.existsSync(dir)) return resolve([]);
+            fs.readdir(dir, (err, files) => {
+              if (err) return resolve([]);
+              const pdfFiles = files.filter((file) =>
+                typeMap.pdf.includes(path.extname(file).toLowerCase())
+              );
+              const pdfDetails = pdfFiles
+                .map((file) => {
+                  const filePath = path.join(dir, file);
+                  let stats;
+                  try {
+                    stats = fs.statSync(filePath);
+                  } catch {
+                    return null;
+                  }
+                  return {
+                    filename: file,
+                    filepath: filePath,
+                    url: `${req.protocol}://${req.get("host")}/pdf/${file}`,
+                    created: stats.birthtime,
+                    size: stats.size,
+                    type: "pdf",
+                  };
+                })
+                .filter(Boolean);
+              resolve(pdfDetails);
+            });
+          });
+        })
+      ),
+      // Docs
+      Promise.all(
+        possibleDocDirectories.map((dir) => {
+          return new Promise((resolve) => {
+            if (!fs.existsSync(dir)) return resolve([]);
+            fs.readdir(dir, (err, files) => {
+              if (err) return resolve([]);
+              const docFiles = files.filter((file) =>
+                typeMap.doc.includes(path.extname(file).toLowerCase())
+              );
+              const docDetails = docFiles
+                .map((file) => {
+                  const filePath = path.join(dir, file);
+                  let stats;
+                  try {
+                    stats = fs.statSync(filePath);
+                  } catch {
+                    return null;
+                  }
+                  return {
+                    filename: file,
+                    filepath: filePath,
+                    url: `${req.protocol}://${req.get("host")}/doc/${file}`,
+                    created: stats.birthtime,
+                    size: stats.size,
+                    type: "doc",
+                  };
+                })
+                .filter(Boolean);
+              resolve(docDetails);
             });
           });
         })
       ),
     ])
       .then((results) => {
-        // Flatten arrays and remove duplicates
-        const [imageArrays, videoArrays] = results;
-
-        // Flatten nested arrays
-        let allImages = imageArrays.flat();
-        let allVideos = videoArrays.flat();
-
-        // Remove duplicate filenames (keep the first occurrence)
-        const uniqueImages = [];
-        const seenImageFilenames = new Set();
-
-        allImages.forEach((image) => {
-          if (!seenImageFilenames.has(image.filename)) {
-            seenImageFilenames.add(image.filename);
-            uniqueImages.push(image);
-          }
-        });
-
-        const uniqueVideos = [];
-        const seenVideoFilenames = new Set();
-
-        allVideos.forEach((video) => {
-          if (!seenVideoFilenames.has(video.filename)) {
-            seenVideoFilenames.add(video.filename);
-            uniqueVideos.push(video);
-          }
-        });
+        // Flatten and deduplicate by filename for each type
+        const [imageArrays, videoArrays, audioArrays, pdfArrays, docArrays] =
+          results;
+        const flattenUnique = (arrays, type) => {
+          const flat = arrays.flat();
+          const seen = new Set();
+          return flat.filter((item) => {
+            if (!item) return false;
+            if (seen.has(item.filename)) return false;
+            seen.add(item.filename);
+            return true;
+          });
+        };
+        const uniqueImages = flattenUnique(imageArrays, "image");
+        const uniqueVideos = flattenUnique(videoArrays, "video");
+        const uniqueAudios = flattenUnique(audioArrays, "audio");
+        const uniquePdfs = flattenUnique(pdfArrays, "pdf");
+        const uniqueDocs = flattenUnique(docArrays, "doc");
 
         let allMedia = [];
-
-        // Apply type filter if specified
-        if (filterType === "image") {
-          allMedia = uniqueImages;
-        } else if (filterType === "video") {
-          allMedia = uniqueVideos;
+        // Compose the result set based on filterType
+        if (filterType.includes("all")) {
+          allMedia = [
+            ...uniqueImages,
+            ...uniqueVideos,
+            ...uniqueAudios,
+            ...uniquePdfs,
+            ...uniqueDocs,
+          ];
         } else {
-          // Default: all media
-          allMedia = [...uniqueImages, ...uniqueVideos];
+          if (filterType.includes("image")) allMedia.push(...uniqueImages);
+          if (filterType.includes("video")) allMedia.push(...uniqueVideos);
+          if (filterType.includes("audio")) allMedia.push(...uniqueAudios);
+          if (filterType.includes("pdf")) allMedia.push(...uniquePdfs);
+          if (filterType.includes("doc")) allMedia.push(...uniqueDocs);
         }
-
-        console.log(
-          `Found ${uniqueImages.length} unique images and ${uniqueVideos.length} unique videos`
-        );
 
         // Sort the media based on the sort parameter
         if (sortBy === "oldest") {
@@ -396,19 +506,11 @@ app.get("/media", (req, res) => {
         } else if (sortBy === "type") {
           allMedia.sort((a, b) => a.type.localeCompare(b.type));
         } else {
-          // Default: newest
           allMedia.sort((a, b) => b.created - a.created);
         }
+        allMedia = allMedia.map(({ filepath, ...rest }) => rest);
 
-        // Remove filepath from results (not needed in response)
-        allMedia = allMedia.map((item) => {
-          const { filepath, ...rest } = item;
-          return rest;
-        });
-
-        // Paginate the results
         const paginatedResults = paginateResults(allMedia, page, limit);
-
         res.json(paginatedResults);
       })
       .catch((error) => {
@@ -883,6 +985,64 @@ app.delete("/delete/:type/:filename", (req, res) => {
     console.error("Error processing delete request:", error);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+// Download media by type and filename
+app.get("/download/:type/:filename", (req, res) => {
+  const { type, filename } = req.params;
+  const decodedFilename = decodeURIComponent(filename);
+
+  // Determine possible paths based on type
+  let possiblePaths = [];
+  if (type === "image") {
+    possiblePaths = [
+      `./uploads/${decodedFilename}`,
+      `./uploads/images/${decodedFilename}`,
+      `./uploads/image/${decodedFilename}`,
+    ];
+  } else if (type === "video") {
+    possiblePaths = [
+      `./uploads/video/${decodedFilename}`,
+      `./uploads/videos/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+      `./uploads/compressed-${decodedFilename}`,
+    ];
+  } else if (type === "audio") {
+    possiblePaths = [
+      `./uploads/audio/${decodedFilename}`,
+      `./uploads/audios/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+    ];
+  } else if (type === "pdf") {
+    possiblePaths = [
+      `./uploads/pdf/${decodedFilename}`,
+      `./uploads/pdfs/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+    ];
+  } else if (type === "doc") {
+    possiblePaths = [
+      `./uploads/docs/${decodedFilename}`,
+      `./uploads/documents/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+    ];
+  } else {
+    return res.status(400).json({ error: "Invalid media type" });
+  }
+
+  // Try each path until found
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      return res.download(path.resolve(filePath), decodedFilename, (err) => {
+        if (err) {
+          console.error("Download error:", err);
+          res.status(500).json({ error: "Failed to download file" });
+        }
+      });
+    }
+  }
+
+  // Not found
+  res.status(404).json({ error: "File not found" });
 });
 
 // Start the server
