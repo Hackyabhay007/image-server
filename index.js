@@ -19,6 +19,9 @@ console.log(API_KEYS);
 // Multer configuration
 const upload = multer({ storage: multer.memoryStorage() }); // Store image in memory
 
+// Accept any field name for single file upload
+const uploadAny = multer({ dest: "./uploads/tmp" }).any();
+
 // Add this variable to store the FFmpeg path
 let ffmpegPath = null;
 
@@ -677,50 +680,54 @@ app.get("/videos", authenticateApiKey, (req, res) => {
   }
 });
 
-app.post("/upload/:quality?", upload.single("image"), async (req, res) => {
-  try {
-    const { quality } = req.params;
-    if (!req.file) {
-      return res.status(400).json({ error: "No image provided" });
+app.post(
+  "/upload/image/:quality?",
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const { quality } = req.params;
+      if (!req.file) {
+        return res.status(400).json({ error: "No image provided" });
+      }
+      const qualityValue = parseInt(quality, 10) || 80; // Default to 80 if not provided
+      if (qualityValue < 1 || qualityValue > 100) {
+        return res
+          .status(400)
+          .json({ error: "Quality must be between 1 and 100" });
+      }
+
+      const imageBuffer = req.file.buffer;
+      const image = `${req.file.originalname}-${Date.now()}.jpg`;
+      const imagePath = `./uploads/${image}`;
+      const responseimge = `image/${image}`;
+
+      let step = new Steps(new FromBuffer(imageBuffer))
+        // .constrainWithin(1000, 1000)
+        .branch((step) =>
+          step
+            // .constrainWithin(900, 900)
+            // .constrainWithin(800, 800)
+            .encode(new FromFile(imagePath), new MozJPEG(100))
+        );
+      // .constrainWithin(100, 100);
+
+      const result = await step
+        .encode(new FromBuffer(null, "key"), new MozJPEG(100))
+        .execute();
+
+      res.send(responseimge);
+    } catch (error) {
+      console.error("Error processing image:", error);
+      res.status(500).json({ error: "Failed to process image" });
     }
-    const qualityValue = parseInt(quality, 10) || 80; // Default to 80 if not provided
-    if (qualityValue < 1 || qualityValue > 100) {
-      return res
-        .status(400)
-        .json({ error: "Quality must be between 1 and 100" });
-    }
-
-    const imageBuffer = req.file.buffer;
-    const image = `${req.file.originalname}-${Date.now()}.jpg`;
-    const imagePath = `./uploads/${image}`;
-    const responseimge = `image/${image}`;
-
-    let step = new Steps(new FromBuffer(imageBuffer))
-      // .constrainWithin(1000, 1000)
-      .branch((step) =>
-        step
-          // .constrainWithin(900, 900)
-          // .constrainWithin(800, 800)
-          .encode(new FromFile(imagePath), new MozJPEG(100))
-      );
-    // .constrainWithin(100, 100);
-
-    const result = await step
-      .encode(new FromBuffer(null, "key"), new MozJPEG(100))
-      .execute();
-
-    res.send(responseimge);
-  } catch (error) {
-    console.error("Error processing image:", error);
-    res.status(500).json({ error: "Failed to process image" });
   }
-});
+);
 
 // Multer configuration for video
 const videoUpload = multer({ storage: multer.memoryStorage() }); // Store video in memory
 
 // Fix the upload-video route to maintain the original response format
-app.post("/upload-video", videoUpload.single("video"), async (req, res) => {
+app.post("/upload/video", videoUpload.single("video"), async (req, res) => {
   let responseHasBeenSent = false; // Flag to track if we've responded already
 
   try {
@@ -1043,6 +1050,48 @@ app.get("/download/:type/:filename", (req, res) => {
 
   // Not found
   res.status(404).json({ error: "File not found" });
+});
+
+// Add this route to handle media uploads from backend
+app.post("/media/upload/:type", uploadAny, (req, res) => {
+  try {
+    const { type } = req.params;
+    // Accept any field name, get the first file
+    const file = req.files && req.files[0];
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+    if (!file.path) {
+      return res.status(400).json({ message: "File path missing" });
+    }
+
+    // Determine destination directory based on type
+    let destDir = "./uploads";
+    if (type === "image") destDir = "./uploads/images";
+    else if (type === "video") destDir = "./uploads/videos";
+    else if (type === "audio") destDir = "./uploads/audios";
+    else if (type === "pdf") destDir = "./uploads/pdfs";
+    else if (type === "doc") destDir = "./uploads/docs";
+
+    // Ensure directory exists
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    // Move file to destination directory
+    const ext = path.extname(file.originalname) || ".bin";
+    const filename = `${Date.now()}-${file.originalname}`;
+    const destPath = path.join(destDir, filename);
+
+    fs.renameSync(file.path, destPath);
+
+    // Return the URL for the uploaded file
+    const url = `${req.protocol}://${req.get("host")}/${type}/${filename}`;
+    res.json({ url });
+  } catch (error) {
+    console.error("Media upload error:", error);
+    res.status(500).json({ message: "Failed to upload media" });
+  }
 });
 
 // Start the server
