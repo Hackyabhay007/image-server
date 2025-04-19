@@ -1058,6 +1058,7 @@ app.post("/media/upload/:type", uploadAny, (req, res) => {
     const { type } = req.params;
     // Accept any field name, get the first file
     const file = req.files && req.files[0];
+
     if (!file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
@@ -1086,8 +1087,12 @@ app.post("/media/upload/:type", uploadAny, (req, res) => {
     fs.renameSync(file.path, destPath);
 
     // Return the URL for the uploaded file
+    if(req.body.fordownload){
+      const downloadUrl = `${req.protocol}://${req.get("host")}/download/${type}/${filename}`;
+      return res.json({ url: downloadUrl });
+    }else{
     const url = `${req.protocol}://${req.get("host")}/${type}/${filename}`;
-    res.json({ url });
+    res.json({ url });}
   } catch (error) {
     console.error("Media upload error:", error);
     res.status(500).json({ message: "Failed to upload media" });
