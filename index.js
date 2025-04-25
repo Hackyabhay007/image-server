@@ -22,8 +22,31 @@ const upload = multer({ storage: multer.memoryStorage() }); // Store image in me
 // Accept any field name for single file upload
 const uploadAny = multer({ dest: "./uploads/tmp" }).any();
 
-// Add this variable to store the FFmpeg path
-let ffmpegPath = null;
+// Add this middleware to handle file uploads with buffer data
+const handleBufferUploads = (req, res, next) => {
+  // Check if there's a file buffer sent in the 'buffer' field
+  if (req.body && req.body.buffer && typeof req.body.buffer === "string") {
+    try {
+      // If buffer is sent as base64 string, convert it to buffer
+      const buffer = Buffer.from(req.body.buffer, "base64");
+
+      // Create a file-like object that multer would typically create
+      req.file = {
+        buffer: buffer,
+        originalname: req.body.filename || `unnamed-${Date.now()}`,
+        mimetype: req.body.mimetype || "image/jpeg",
+        size: buffer.length,
+      };
+
+      console.log(
+        `Created file object from buffer with size: ${buffer.length} bytes`
+      );
+    } catch (error) {
+      console.error("Error handling buffer upload:", error);
+    }
+  }
+  next();
+};
 
 // Update the FFmpeg path configuration to store the path in a variable
 try {
@@ -683,12 +706,14 @@ app.get("/videos", authenticateApiKey, (req, res) => {
 app.post(
   "/upload/image/:quality?",
   upload.single("image"),
+  handleBufferUploads,
   async (req, res) => {
     try {
       const { quality } = req.params;
-      if (!req.file) {
+      if (!req.file && (!req.body || !req.body.buffer)) {
         return res.status(400).json({ error: "No image provided" });
       }
+
       const qualityValue = parseInt(quality, 10) || 80; // Default to 80 if not provided
       if (qualityValue < 1 || qualityValue > 100) {
         return res
@@ -696,10 +721,28 @@ app.post(
           .json({ error: "Quality must be between 1 and 100" });
       }
 
-      // Extract information from the uploaded file
-      const imageBuffer = req.file.buffer;
-      const mimeType = req.file.mimetype || "image/jpeg";
-      const originalName = req.file.originalname || `unnamed-${Date.now()}.jpg`;
+      // Get the image buffer either from file upload or from request body
+      const imageBuffer = req.file
+        ? req.file.buffer
+        : req.body.buffer
+        ? Buffer.from(req.body.buffer, "base64")
+        : null;
+
+      if (!imageBuffer) {
+        return res.status(400).json({ error: "Invalid image data" });
+      }
+
+      // Extract file info (from either source)
+      const mimeType = req.file
+        ? req.file.mimetype
+        : req.body.mimetype || "image/jpeg";
+      const originalName = req.file
+        ? req.file.originalname
+        : req.body.filename || `unnamed-${Date.now()}`;
+
+      console.log(
+        `Processing image: ${originalName}, mime type: ${mimeType}, buffer size: ${imageBuffer.length}`
+      );
 
       // Normalize the file extension based on MIME type
       let fileExt;
@@ -725,25 +768,9 @@ app.post(
           fileExt = ".jpg";
       }
 
-      // If original filename has an extension, extract it and validate
-      const originalExt = path.extname(originalName).toLowerCase();
-      const validExtensions = [
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".webp",
-        ".bmp",
-      ];
-
-      // Use original extension if it's valid, otherwise use the one from MIME type
-      const finalExt = validExtensions.includes(originalExt)
-        ? originalExt
-        : fileExt;
-
       // Create a clean filename with timestamp and proper extension
       const timestamp = Date.now();
-      const cleanFileName = `${timestamp}${finalExt}`;
+      const cleanFileName = `${timestamp}${fileExt}`;
 
       // Store in the images directory
       const imageDir = "./uploads/images";
@@ -753,10 +780,6 @@ app.post(
 
       const imagePath = `${imageDir}/${cleanFileName}`;
       const responseImage = `image/${cleanFileName}`;
-
-      console.log(
-        `Processing image upload to ${imagePath} (ext: ${finalExt}, mime: ${mimeType})`
-      );
 
       // Use imageflow to process the image
       let step = new Steps(new FromBuffer(imageBuffer)).branch((step) =>
@@ -770,7 +793,9 @@ app.post(
       res.send(responseImage);
     } catch (error) {
       console.error("Error processing image:", error);
-      res.status(500).json({ error: "Failed to process image" });
+      res
+        .status(500)
+        .json({ error: "Failed to process image", details: error.message });
     }
   }
 );
@@ -1105,7 +1130,7 @@ app.get("/download/:type/:filename", (req, res) => {
 });
 
 // Fix the POST /media/upload/:type endpoint to handle file extensions properly
-app.post("/media/upload/:type", uploadAny, (req, res) => {
+app.post("/media/upload/:type", uploadAny, handleBufferUploads, (req, res) => {
   try {
     const { type } = req.params;
     // Accept any field name, get the first file
