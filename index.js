@@ -696,27 +696,57 @@ app.post(
           .json({ error: "Quality must be between 1 and 100" });
       }
 
-      // Extract original file extension and ensure it's lowercase
-      const originalName = req.file.originalname;
-      const fileExt = path.extname(originalName).toLowerCase();
+      // Extract information from the uploaded file
+      const imageBuffer = req.file.buffer;
+      const mimeType = req.file.mimetype || "image/jpeg";
+      const originalName = req.file.originalname || `unnamed-${Date.now()}.jpg`;
 
-      // Use appropriate extension based on mime type or fall back to original
-      let outputExt = fileExt;
-      // If no extension or unrecognized type, default to .jpg
-      if (
-        !outputExt ||
-        ![".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(outputExt)
-      ) {
-        outputExt = ".jpg";
+      // Normalize the file extension based on MIME type
+      let fileExt;
+      switch (mimeType) {
+        case "image/jpeg":
+        case "image/jpg":
+          fileExt = ".jpg";
+          break;
+        case "image/png":
+          fileExt = ".png";
+          break;
+        case "image/gif":
+          fileExt = ".gif";
+          break;
+        case "image/webp":
+          fileExt = ".webp";
+          break;
+        case "image/bmp":
+          fileExt = ".bmp";
+          break;
+        default:
+          // Default to jpg if MIME type not recognized
+          fileExt = ".jpg";
       }
 
-      // Create a clean filename: timestamp + original extension
-      const timestamp = Date.now();
-      const cleanFileName = `${timestamp}${outputExt}`;
+      // If original filename has an extension, extract it and validate
+      const originalExt = path.extname(originalName).toLowerCase();
+      const validExtensions = [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+      ];
 
-      // Define image storage paths
+      // Use original extension if it's valid, otherwise use the one from MIME type
+      const finalExt = validExtensions.includes(originalExt)
+        ? originalExt
+        : fileExt;
+
+      // Create a clean filename with timestamp and proper extension
+      const timestamp = Date.now();
+      const cleanFileName = `${timestamp}${finalExt}`;
+
+      // Store in the images directory
       const imageDir = "./uploads/images";
-      // Create directory if it doesn't exist
       if (!fs.existsSync(imageDir)) {
         fs.mkdirSync(imageDir, { recursive: true });
       }
@@ -724,8 +754,11 @@ app.post(
       const imagePath = `${imageDir}/${cleanFileName}`;
       const responseImage = `image/${cleanFileName}`;
 
-      const imageBuffer = req.file.buffer;
+      console.log(
+        `Processing image upload to ${imagePath} (ext: ${finalExt}, mime: ${mimeType})`
+      );
 
+      // Use imageflow to process the image
       let step = new Steps(new FromBuffer(imageBuffer)).branch((step) =>
         step.encode(new FromFile(imagePath), new MozJPEG(100))
       );
@@ -1071,7 +1104,7 @@ app.get("/download/:type/:filename", (req, res) => {
   res.status(404).json({ error: "File not found" });
 });
 
-// Add this route to handle media uploads from backend
+// Fix the POST /media/upload/:type endpoint to handle file extensions properly
 app.post("/media/upload/:type", uploadAny, (req, res) => {
   try {
     const { type } = req.params;
@@ -1098,14 +1131,68 @@ app.post("/media/upload/:type", uploadAny, (req, res) => {
       fs.mkdirSync(destDir, { recursive: true });
     }
 
-    // Move file to destination directory
-    const ext = path.extname(file.originalname) || ".bin";
-    const filename = `${Date.now()}-${file.originalname}`;
+    // Process and normalize file extension
+    const originalName = file.originalname || path.basename(file.path);
+    let originalExt = path.extname(originalName).toLowerCase();
+    const mimeType = file.mimetype || "";
+
+    // Determine the correct extension based on file type and MIME type
+    let finalExt;
+    if (type === "image") {
+      const validImageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
+
+      // Set extension based on mime type
+      if (mimeType.startsWith("image/")) {
+        switch (mimeType) {
+          case "image/jpeg":
+            finalExt = ".jpg";
+            break;
+          case "image/png":
+            finalExt = ".png";
+            break;
+          case "image/gif":
+            finalExt = ".gif";
+            break;
+          case "image/webp":
+            finalExt = ".webp";
+            break;
+          case "image/bmp":
+            finalExt = ".bmp";
+            break;
+          default:
+            finalExt = ".jpg"; // Default for images
+        }
+      } else if (validImageExts.includes(originalExt)) {
+        finalExt = originalExt;
+      } else {
+        finalExt = ".jpg"; // Default for images
+      }
+    } else {
+      // For other types, use original extension or default based on type
+      finalExt =
+        originalExt ||
+        (type === "video"
+          ? ".mp4"
+          : type === "audio"
+          ? ".mp3"
+          : type === "pdf"
+          ? ".pdf"
+          : ".bin");
+    }
+
+    // Create a clean filename with timestamp
+    const baseName = path.basename(originalName, originalExt);
+    const safeBaseName = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const timestamp = Date.now();
+    const filename = `${timestamp}-${safeBaseName}${finalExt}`;
     const destPath = path.join(destDir, filename);
 
+    console.log(`Moving uploaded ${type} from ${file.path} to ${destPath}`);
+
+    // Move file to destination
     fs.renameSync(file.path, destPath);
 
-    // Return the URL for the uploaded file
+    // Return appropriate URL
     if (req.body.fordownload) {
       const downloadUrl = `${req.protocol}://${req.get(
         "host"
