@@ -696,26 +696,45 @@ app.post(
           .json({ error: "Quality must be between 1 and 100" });
       }
 
-      const imageBuffer = req.file.buffer;
-      const image = `${req.file.originalname}-${Date.now()}.jpg`;
-      const imagePath = `./uploads/${image}`;
-      const responseimge = `image/${image}`;
+      // Extract original file extension and ensure it's lowercase
+      const originalName = req.file.originalname;
+      const fileExt = path.extname(originalName).toLowerCase();
 
-      let step = new Steps(new FromBuffer(imageBuffer))
-        // .constrainWithin(1000, 1000)
-        .branch((step) =>
-          step
-            // .constrainWithin(900, 900)
-            // .constrainWithin(800, 800)
-            .encode(new FromFile(imagePath), new MozJPEG(100))
-        );
-      // .constrainWithin(100, 100);
+      // Use appropriate extension based on mime type or fall back to original
+      let outputExt = fileExt;
+      // If no extension or unrecognized type, default to .jpg
+      if (
+        !outputExt ||
+        ![".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(outputExt)
+      ) {
+        outputExt = ".jpg";
+      }
+
+      // Create a clean filename: timestamp + original extension
+      const timestamp = Date.now();
+      const cleanFileName = `${timestamp}${outputExt}`;
+
+      // Define image storage paths
+      const imageDir = "./uploads/images";
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(imageDir)) {
+        fs.mkdirSync(imageDir, { recursive: true });
+      }
+
+      const imagePath = `${imageDir}/${cleanFileName}`;
+      const responseImage = `image/${cleanFileName}`;
+
+      const imageBuffer = req.file.buffer;
+
+      let step = new Steps(new FromBuffer(imageBuffer)).branch((step) =>
+        step.encode(new FromFile(imagePath), new MozJPEG(100))
+      );
 
       const result = await step
         .encode(new FromBuffer(null, "key"), new MozJPEG(100))
         .execute();
 
-      res.send(responseimge);
+      res.send(responseImage);
     } catch (error) {
       console.error("Error processing image:", error);
       res.status(500).json({ error: "Failed to process image" });
@@ -1087,12 +1106,15 @@ app.post("/media/upload/:type", uploadAny, (req, res) => {
     fs.renameSync(file.path, destPath);
 
     // Return the URL for the uploaded file
-    if(req.body.fordownload){
-      const downloadUrl = `${req.protocol}://${req.get("host")}/download/${type}/${filename}`;
+    if (req.body.fordownload) {
+      const downloadUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/download/${type}/${filename}`;
       return res.json({ url: downloadUrl });
-    }else{
-    const url = `${req.protocol}://${req.get("host")}/${type}/${filename}`;
-    res.json({ url });}
+    } else {
+      const url = `${req.protocol}://${req.get("host")}/${type}/${filename}`;
+      res.json({ url });
+    }
   } catch (error) {
     console.error("Media upload error:", error);
     res.status(500).json({ message: "Failed to upload media" });
