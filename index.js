@@ -172,6 +172,64 @@ app.get("/video/:filename", (req, res) => {
   }
 });
 
+// Download media by type and filename
+app.get("/download/:type/:filename", (req, res) => {
+  const { type, filename } = req.params;
+  const decodedFilename = decodeURIComponent(filename);
+
+  // Determine possible paths based on type
+  let possiblePaths = [];
+  if (type === "image") {
+    possiblePaths = [
+      `./uploads/${decodedFilename}`,
+      `./uploads/images/${decodedFilename}`,
+      `./uploads/image/${decodedFilename}`,
+    ];
+  } else if (type === "video") {
+    possiblePaths = [
+      `./uploads/video/${decodedFilename}`,
+      `./uploads/videos/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+      `./uploads/compressed-${decodedFilename}`,
+    ];
+  } else if (type === "audio") {
+    possiblePaths = [
+      `./uploads/audio/${decodedFilename}`,
+      `./uploads/audios/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+    ];
+  } else if (type === "pdf") {
+    possiblePaths = [
+      `./uploads/pdf/${decodedFilename}`,
+      `./uploads/pdfs/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+    ];
+  } else if (type === "doc") {
+    possiblePaths = [
+      `./uploads/docs/${decodedFilename}`,
+      `./uploads/documents/${decodedFilename}`,
+      `./uploads/${decodedFilename}`,
+    ];
+  } else {
+    return res.status(400).json({ error: "Invalid media type" });
+  }
+
+  // Try each path until found
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      return res.download(path.resolve(filePath), decodedFilename, (err) => {
+        if (err) {
+          console.error("Download error:", err);
+          res.status(500).json({ error: "Failed to download file" });
+        }
+      });
+    }
+  }
+
+  // Not found
+  res.status(404).json({ error: "File not found" });
+});
+
 // Middleware to check API key
 const authenticateApiKey = (req, res, next) => {
   const apiKey = req.header("Authorization")?.split(" ")[1]; // Extract key from Authorization header
@@ -1071,63 +1129,7 @@ app.delete("/delete/:type/:filename", (req, res) => {
   }
 });
 
-// Download media by type and filename
-app.get("/download/:type/:filename", (req, res) => {
-  const { type, filename } = req.params;
-  const decodedFilename = decodeURIComponent(filename);
 
-  // Determine possible paths based on type
-  let possiblePaths = [];
-  if (type === "image") {
-    possiblePaths = [
-      `./uploads/${decodedFilename}`,
-      `./uploads/images/${decodedFilename}`,
-      `./uploads/image/${decodedFilename}`,
-    ];
-  } else if (type === "video") {
-    possiblePaths = [
-      `./uploads/video/${decodedFilename}`,
-      `./uploads/videos/${decodedFilename}`,
-      `./uploads/${decodedFilename}`,
-      `./uploads/compressed-${decodedFilename}`,
-    ];
-  } else if (type === "audio") {
-    possiblePaths = [
-      `./uploads/audio/${decodedFilename}`,
-      `./uploads/audios/${decodedFilename}`,
-      `./uploads/${decodedFilename}`,
-    ];
-  } else if (type === "pdf") {
-    possiblePaths = [
-      `./uploads/pdf/${decodedFilename}`,
-      `./uploads/pdfs/${decodedFilename}`,
-      `./uploads/${decodedFilename}`,
-    ];
-  } else if (type === "doc") {
-    possiblePaths = [
-      `./uploads/docs/${decodedFilename}`,
-      `./uploads/documents/${decodedFilename}`,
-      `./uploads/${decodedFilename}`,
-    ];
-  } else {
-    return res.status(400).json({ error: "Invalid media type" });
-  }
-
-  // Try each path until found
-  for (const filePath of possiblePaths) {
-    if (fs.existsSync(filePath)) {
-      return res.download(path.resolve(filePath), decodedFilename, (err) => {
-        if (err) {
-          console.error("Download error:", err);
-          res.status(500).json({ error: "Failed to download file" });
-        }
-      });
-    }
-  }
-
-  // Not found
-  res.status(404).json({ error: "File not found" });
-});
 
 // Fix the POST /media/upload/:type endpoint to handle file extensions properly
 app.post("/media/upload/:type", uploadAny, handleBufferUploads, (req, res) => {
