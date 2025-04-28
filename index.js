@@ -210,7 +210,16 @@ app.get("/download/:type/:filename", (req, res) => {
       `./uploads/documents/${decodedFilename}`,
       `./uploads/${decodedFilename}`,
     ];
-  } else {
+  }else if(type === "documents" ||type === "document" ){
+    {
+      possiblePaths = [
+        `./uploads/docs/${decodedFilename}`,
+        `./uploads/documents/${decodedFilename}`,
+        `./uploads/${decodedFilename}`,
+      ];
+    }
+  }
+   else {
     return res.status(400).json({ error: "Invalid media type" });
   }
 
