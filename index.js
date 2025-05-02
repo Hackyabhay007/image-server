@@ -402,7 +402,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/image/${file}`,
+                    url: `https://${req.get("host")}/image/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "image",
@@ -436,7 +436,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/video/${file}`,
+                    url: `https://${req.get("host")}/video/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "video",
@@ -470,7 +470,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/audio/${file}`,
+                    url: `https://${req.get("host")}/audio/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "audio",
@@ -504,7 +504,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/pdf/${file}`,
+                    url: `https://${req.get("host")}/pdf/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "pdf",
@@ -538,7 +538,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `${req.protocol}://${req.get("host")}/doc/${file}`,
+                    url: `https://${req.get("host")}/doc/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "doc",
@@ -1230,12 +1230,12 @@ app.post("/media/upload/:type", uploadAny, handleBufferUploads, (req, res) => {
 
     // Return appropriate URL
     if (req.body.fordownload) {
-      const downloadUrl = `${req.protocol}://${req.get(
+      const downloadUrl = `https://${req.get(
         "host"
       )}/download/${type}/${filename}`;
       return res.json({ url: downloadUrl });
     } else {
-      const url = `${req.protocol}://${req.get("host")}/${type}/${filename}`;
+      const url = `https://${req.get("host")}/${type}/${filename}`;
       res.json({ url });
     }
   } catch (error) {
