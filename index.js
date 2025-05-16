@@ -402,7 +402,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/image/${file}`,
+                    url: `https://storage.bksgrocers.com/image/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "image",
@@ -436,7 +436,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/video/${file}`,
+                    url: `https://storage.bksgrocers.com/video/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "video",
@@ -470,7 +470,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/audio/${file}`,
+                    url: `https://storage.bksgrocers.com/audio/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "audio",
@@ -504,7 +504,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/pdf/${file}`,
+                    url: `https://storage.bksgrocers.com/pdf/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "pdf",
@@ -538,7 +538,7 @@ app.get("/media", (req, res) => {
                   return {
                     filename: file,
                     filepath: filePath,
-                    url: `https://${req.get("host")}/doc/${file}`,
+                    url: `https://storage.bksgrocers.com/doc/${file}`,
                     created: stats.birthtime,
                     size: stats.size,
                     type: "doc",
@@ -657,7 +657,7 @@ app.get("/images", authenticateApiKey, (req, res) => {
           console.error(`Error getting stats for ${filePath}:`, err);
           return {
             filename: file,
-            url: `https://${req.get("host")}/image/${file}`,
+            url: `https://storage.bksgrocers.com/image/${file}`,
             created: new Date(),
             size: 0,
             type: "image",
@@ -666,7 +666,7 @@ app.get("/images", authenticateApiKey, (req, res) => {
 
         return {
           filename: file,
-          url: `https://${req.get("host")}/image/${file}`,
+          url: `https://storage.bksgrocers.com/image/${file}`,
           created: stats.birthtime,
           size: stats.size,
           type: "image",
@@ -732,7 +732,7 @@ app.get("/videos", authenticateApiKey, (req, res) => {
           console.error(`Error getting stats for ${filePath}:`, err);
           return {
             filename: file,
-            url: `https://${req.get("host")}/video/${file}`,
+            url: `https://storage.bksgrocers.com/video/${file}`,
             created: new Date(),
             size: 0,
             type: "video",
@@ -741,7 +741,7 @@ app.get("/videos", authenticateApiKey, (req, res) => {
 
         return {
           filename: file,
-          url: `https://${req.get("host")}/video/${file}`,
+          url: `https://storage.bksgrocers.com/video/${file}`,
           created: stats.birthtime,
           size: stats.size,
           type: "video",
@@ -1235,7 +1235,7 @@ app.post("/media/upload/:type", uploadAny, handleBufferUploads, (req, res) => {
       )}/download/${type}/${filename}`;
       return res.json({ url: downloadUrl });
     } else {
-      const url = `https://${req.get("host")}/${type}/${filename}`;
+      const url = `https://storage.bksgrocers.com/${type}/${filename}`;
       res.json({ url });
     }
   } catch (error) {
