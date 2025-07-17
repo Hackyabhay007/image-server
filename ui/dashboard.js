@@ -536,7 +536,7 @@ class Dashboard {
             }
             
             this.showToast('Upload completed successfully', 'success');
-            this.closeUploadModal();
+            closeUploadModal();
             this.loadFiles();
             
         } catch (error) {
@@ -551,7 +551,20 @@ class Dashboard {
 
     async uploadSingleFile(file) {
         const formData = new FormData();
-        const fileType = document.getElementById('singleFileType').value;
+        
+        // Auto-detect file type based on extension
+        const ext = file.name.split('.').pop().toLowerCase();
+        let fileType = 'doc';
+        
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'].includes(ext)) {
+            fileType = 'image';
+        } else if (['mp4', 'avi', 'mov', 'webm', 'mkv', 'wmv', 'flv', 'mpeg'].includes(ext)) {
+            fileType = 'video';
+        } else if (['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a', 'wma'].includes(ext)) {
+            fileType = 'audio';
+        } else if (ext === 'pdf') {
+            fileType = 'pdf';
+        }
         
         formData.append('file', file);
         
@@ -580,11 +593,11 @@ class Dashboard {
             const ext = file.name.split('.').pop().toLowerCase();
             let fileType = 'doc';
             
-            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) {
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'].includes(ext)) {
                 fileType = 'image';
-            } else if (['mp4', 'avi', 'mov', 'webm', 'mkv'].includes(ext)) {
+            } else if (['mp4', 'avi', 'mov', 'webm', 'mkv', 'wmv', 'flv', 'mpeg'].includes(ext)) {
                 fileType = 'video';
-            } else if (['mp3', 'wav', 'aac', 'ogg', 'flac'].includes(ext)) {
+            } else if (['mp3', 'wav', 'aac', 'ogg', 'flac', 'm4a', 'wma'].includes(ext)) {
                 fileType = 'audio';
             } else if (ext === 'pdf') {
                 fileType = 'pdf';

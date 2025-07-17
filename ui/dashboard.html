@@ -14,16 +14,16 @@
         <header class="dashboard-header">
             <div class="header-content">
                 <div class="logo-section">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <h1>File Management Dashboard</h1>
+                    <i class="fas fa-folder"></i>
+                    <h1>File Manager</h1>
                 </div>
                 <div class="header-actions">
                     <button class="upload-btn" onclick="openUploadModal()">
-                        <i class="fas fa-plus"></i>
-                        Upload Files
+                        <i class="fas fa-upload"></i>
+                        Upload
                     </button>
                     <div class="user-info">
-                        <i class="fas fa-user-circle"></i>
+                        <i class="fas fa-user"></i>
                         <span id="currentUser">Admin</span>
                         <button class="logout-btn" onclick="dashboard.logout()">
                             <i class="fas fa-sign-out-alt"></i>
@@ -137,8 +137,8 @@
                     <h3>No files found</h3>
                     <p>Upload some files to get started</p>
                     <button class="upload-btn" onclick="openUploadModal()">
-                        <i class="fas fa-plus"></i>
-                        Upload Files
+                        <i class="fas fa-upload"></i>
+                        Upload
                     </button>
                 </div>
             </div>
@@ -184,17 +184,8 @@
                     <div class="upload-area" id="singleUploadArea">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <p>Drag & drop a file here or click to browse</p>
+                        <p class="upload-hint">File type will be automatically detected</p>
                         <input type="file" id="singleFileInput" accept="*/*" style="display: none;">
-                    </div>
-                    <div class="file-type-selector">
-                        <label>File Type:</label>
-                        <select id="singleFileType">
-                            <option value="image">Image</option>
-                            <option value="video">Video</option>
-                            <option value="audio">Audio</option>
-                            <option value="pdf">PDF</option>
-                            <option value="doc">Document</option>
-                        </select>
                     </div>
                 </div>
                 
@@ -202,6 +193,7 @@
                     <div class="upload-area" id="multipleUploadArea">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <p>Drag & drop multiple files here or click to browse</p>
+                        <p class="upload-hint">File types will be automatically detected</p>
                         <input type="file" id="multipleFileInput" accept="*/*" multiple style="display: none;">
                     </div>
                 </div>
