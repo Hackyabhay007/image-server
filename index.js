@@ -265,7 +265,23 @@ const authenticateApiKey = (req, res, next) => {
   next(); // Continue to the requested route
 };
 
-app.use(authenticateApiKey); // Use this middleware for all routes
+// Apply authentication middleware only to API routes, not to UI routes
+app.use((req, res, next) => {
+  // Skip authentication for UI routes and static files
+  if (req.path.startsWith('/ui') || 
+      req.path.startsWith('/dashboard') || 
+      req.path.startsWith('/login') || 
+      req.path.startsWith('/test-env') ||
+      req.path === '/' ||
+      req.path.startsWith('/image/') ||
+      req.path.startsWith('/video/') ||
+      req.path.startsWith('/download/')) {
+    return next();
+  }
+  
+  // Apply API key authentication for all other routes
+  return authenticateApiKey(req, res, next);
+});
 
 // Define directory variables consistently
 const imageDir = "./uploads"; // Where images are storedstored
