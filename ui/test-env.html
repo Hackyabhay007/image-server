@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Test - Image Server</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-button {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .status.success {
+            background: rgba(46, 213, 115, 0.2);
+            border: 1px solid rgba(46, 213, 115, 0.5);
+        }
+        .status.error {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid rgba(255, 107, 107, 0.5);
+        }
+        .status.info {
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+        }
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .config-label {
+            font-weight: 600;
+        }
+        .config-value {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+    <!-- CONFIG_PLACEHOLDER -->
+</head>
+<body>
+    <h1>Environment Configuration Test</h1>
+    
+    <div class="nav-links">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/login" class="nav-link">Login</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+    </div>
+    
+    <div class="test-section">
+        <h2>Server Configuration Test</h2>
+        <p>Test if the server environment variables are properly loaded:</p>
+        <button class="test-button" onclick="testServerConfig()">Test Server Config</button>
+        <div id="serverConfigStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Environment Variables Display</h2>
+        <p>Current environment configuration:</p>
+        <div id="envDisplay"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Authentication Test</h2>
+        <p>Test admin credentials from environment:</p>
+        <button class="test-button" onclick="testAuth()">Test Authentication</button>
+        <div id="authStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>API Connection Test</h2>
+        <p>Test API connection with environment variables:</p>
+        <button class="test-button" onclick="testAPI()">Test API Connection</button>
+        <div id="apiStatus"></div>
+    </div>
+
+    <script>
+        // Configuration from server
+        const config = window.SERVER_CONFIG || {};
+        
+        // Environment variables
+        const API_BASE_URL = config.API_BASE_URL || 'https://storage.cmsil.org';
+        const API_KEY = config.API_KEY || '5d92b8f69c9dda89f38c10fa6750376a25b53a9afd47e74951104769630d4ccc';
+        const ADMIN_USERNAME = config.ADMIN_USERNAME || 'admin';
+        const ADMIN_PASSWORD = config.ADMIN_PASSWORD || 'admin123';
+        const CURRENT_ENV = config.CURRENT_ENV || 'PRODUCTION';
+        const SESSION_TIMEOUT = config.SESSION_TIMEOUT || 86400000; // 24 hours
+        const ENABLE_AUTH = config.ENABLE_AUTH !== false; // Default to true
+        const NODE_ENV = config.NODE_ENV || 'development';
+
+        function testServerConfig() {
+            const statusDiv = document.getElementById('serverConfigStatus');
+            
+            if (config && Object.keys(config).length > 0) {
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Server configuration loaded successfully!<br>
+                        Environment: ${CURRENT_ENV}<br>
+                        Node Environment: ${NODE_ENV}<br>
+                        Authentication: ${ENABLE_AUTH ? 'Enabled' : 'Disabled'}
+                    </div>
+                `;
+                displayEnvironment();
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Failed to load server configuration
+                    </div>
+                `;
+            }
+        }
+
+        function displayEnvironment() {
+            const envDiv = document.getElementById('envDisplay');
+            
+            let html = '<div class="status info">';
+            html += '<h3>Current Environment Configuration:</h3>';
+            
+            const configItems = [
+                { label: 'Environment', value: CURRENT_ENV },
+                { label: 'API Base URL', value: API_BASE_URL },
+                { label: 'API Key', value: API_KEY ? 'Set' : 'Not set' },
+                { label: 'Admin Username', value: ADMIN_USERNAME },
+                { label: 'Admin Password', value: ADMIN_PASSWORD ? 'Set' : 'Not set' },
+                { label: 'Session Timeout', value: `${SESSION_TIMEOUT}ms` },
+                { label: 'Authentication', value: ENABLE_AUTH ? 'Enabled' : 'Disabled' },
+                { label: 'Node Environment', value: NODE_ENV }
+            ];
+            
+            configItems.forEach(item => {
+                html += `
+                    <div class="config-item">
+                        <span class="config-label">${item.label}:</span>
+                        <span class="config-value">${item.value}</span>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            envDiv.innerHTML = html;
+        }
+
+        function testAuth() {
+            const statusDiv = document.getElementById('authStatus');
+            
+            const hasUsername = ADMIN_USERNAME && ADMIN_USERNAME !== '';
+            const hasPassword = ADMIN_PASSWORD && ADMIN_PASSWORD !== '';
+            
+            if (hasUsername && hasPassword) {
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Authentication credentials configured<br>
+                        Username: ${ADMIN_USERNAME}<br>
+                        Password: ${'*'.repeat(ADMIN_PASSWORD.length)}
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Authentication credentials not properly configured
+                    </div>
+                `;
+            }
+        }
+
+        async function testAPI() {
+            const statusDiv = document.getElementById('apiStatus');
+            statusDiv.innerHTML = '<div class="status info">Testing API connection...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/media?limit=1`, {
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="status success">
+                            ✅ API connection successful!<br>
+                            Base URL: ${API_BASE_URL}<br>
+                            Found ${data.total || 0} files<br>
+                            Status: ${response.status}
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="status error">
+                            ❌ API connection failed<br>
+                            Base URL: ${API_BASE_URL}<br>
+                            Status: ${response.status}<br>
+                            Please check your API key and base URL
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ API connection error<br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            testServerConfig();
+        });
+    </script>
+</body>
+</html> 
