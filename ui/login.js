@@ -71,8 +71,10 @@ class LoginManager {
     }
 
     validateCredentials(username, password) {
-        const env = window.getCurrentEnv();
-        return username === env.ADMIN_USERNAME && password === env.ADMIN_PASSWORD;
+        const config = window.SERVER_CONFIG || {};
+        const adminUsername = config.ADMIN_USERNAME || 'admin';
+        const adminPassword = config.ADMIN_PASSWORD || 'admin123';
+        return username === adminUsername && password === adminPassword;
     }
 
     setLoginState(username) {
@@ -144,10 +146,8 @@ class LoginManager {
     }
 }
 
-// Initialize login manager when DOM is loaded and config is ready
-document.addEventListener('DOMContentLoaded', async () => {
-    // Wait for server config to load
-    await window.loadServerConfig();
+// Initialize login manager when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
     new LoginManager();
 });
 

@@ -1,13 +1,34 @@
 // Configuration file for the dashboard
 const config = {
-    // API Key - Get from environment config
+    // API Key - Get from server-injected config
     get API_KEY() {
-        return window.getCurrentEnv ? window.getCurrentEnv().API_KEY : '5d92b8f69c9dda89f38c10fa6750376a25b53a9afd47e74951104769630d4ccc';
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.API_KEY : '5d92b8f69c9dda89f38c10fa6750376a25b53a9afd47e74951104769630d4ccc';
     },
     
-    // Server settings - Get from environment config
+    // Server settings - Get from server-injected config
     get SERVER_URL() {
-        return window.getCurrentEnv ? window.getCurrentEnv().API_BASE_URL : "https://storage.cmsil.org";
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.API_BASE_URL : "https://storage.cmsil.org";
+    },
+    
+    // Admin credentials - Get from server-injected config
+    get ADMIN_USERNAME() {
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.ADMIN_USERNAME : 'admin';
+    },
+    
+    get ADMIN_PASSWORD() {
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.ADMIN_PASSWORD : 'admin123';
+    },
+    
+    get CURRENT_ENV() {
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.CURRENT_ENV : 'PRODUCTION';
+    },
+    
+    get SESSION_TIMEOUT() {
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.SESSION_TIMEOUT : 86400000;
+    },
+    
+    get ENABLE_AUTH() {
+        return window.SERVER_CONFIG ? window.SERVER_CONFIG.ENABLE_AUTH : true;
     },
     
     // Dashboard settings
