@@ -4,33 +4,16 @@ const { MozJPEG, Steps, FromBuffer, FromFile } = require("@imazen/imageflow");
 const fs = require("fs");
 const app = express();
 require("dotenv").config();
+const API_KEYS = [process.env.API_KEYS]; // Store your valid API keys here
 const cors = require("cors");
 const ffmpeg = require("fluent-ffmpeg");
-const path = require("path");
-
-// Environment variables
-const API_KEYS = [process.env.API_KEYS || '5d92b8f69c9dda89f38c10fa6750376a25b53a9afd47e74951104769630d4ccc'];
-const PORT = process.env.PORT || 3000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const BASE_URL = process.env.BASE_URL || 'https://storage.cmsil.org';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const CURRENT_ENV = process.env.CURRENT_ENV || 'PRODUCTION';
-const SESSION_TIMEOUT = parseInt(process.env.SESSION_TIMEOUT) || 86400000; // 24 hours
-const ENABLE_AUTH = process.env.ENABLE_AUTH !== 'false'; // Default to true
+const path = require("path"); // Ensure path is required if not already
 
 app.use(
   cors({
     origin: "*",
   })
 );
-
-// Serve static files for UI
-app.use('/ui', express.static(path.join(__dirname, 'ui')));
-
-// Serve dashboard files
-app.use('/dashboard', express.static(path.join(__dirname, 'ui')));
-app.use('/login', express.static(path.join(__dirname, 'ui')));
 
 console.log(API_KEYS);
 // Multer configuration
@@ -1261,88 +1244,8 @@ app.post("/media/upload/:type", uploadAny, handleBufferUploads, (req, res) => {
   }
 });
 
-// Root route - redirect to login
-app.get("/", (req, res) => {
-  res.redirect("/login");
-});
-
-// Login route - serve the login HTML with injected config
-app.get("/login", (req, res) => {
-  const loginHtmlPath = path.join(__dirname, "ui", "login.html");
-  let html = fs.readFileSync(loginHtmlPath, 'utf8');
-  
-  // Inject environment variables directly into the HTML
-  const config = {
-    API_BASE_URL: BASE_URL,
-    API_KEY: API_KEYS[0],
-    ADMIN_USERNAME: ADMIN_USERNAME,
-    ADMIN_PASSWORD: ADMIN_PASSWORD,
-    CURRENT_ENV: CURRENT_ENV,
-    SESSION_TIMEOUT: SESSION_TIMEOUT,
-    ENABLE_AUTH: ENABLE_AUTH,
-    NODE_ENV: NODE_ENV
-  };
-  
-  // Replace placeholder with actual config
-  html = html.replace('<!-- CONFIG_PLACEHOLDER -->', `<script>const SERVER_CONFIG = ${JSON.stringify(config)};</script>`);
-  
-  res.setHeader('Content-Type', 'text/html');
-  res.send(html);
-});
-
-// Dashboard route - serve the dashboard HTML with injected config
-app.get("/dashboard", (req, res) => {
-  const dashboardHtmlPath = path.join(__dirname, "ui", "dashboard.html");
-  let html = fs.readFileSync(dashboardHtmlPath, 'utf8');
-  
-  // Inject environment variables directly into the HTML
-  const config = {
-    API_BASE_URL: BASE_URL,
-    API_KEY: API_KEYS[0],
-    ADMIN_USERNAME: ADMIN_USERNAME,
-    ADMIN_PASSWORD: ADMIN_PASSWORD,
-    CURRENT_ENV: CURRENT_ENV,
-    SESSION_TIMEOUT: SESSION_TIMEOUT,
-    ENABLE_AUTH: ENABLE_AUTH,
-    NODE_ENV: NODE_ENV
-  };
-  
-  // Replace placeholder with actual config
-  html = html.replace('<!-- CONFIG_PLACEHOLDER -->', `<script>const SERVER_CONFIG = ${JSON.stringify(config)};</script>`);
-  
-  res.setHeader('Content-Type', 'text/html');
-  res.send(html);
-});
-
-// Test environment configuration page with injected config
-app.get("/test-env", (req, res) => {
-  const testEnvHtmlPath = path.join(__dirname, "ui", "test-env.html");
-  let html = fs.readFileSync(testEnvHtmlPath, 'utf8');
-  
-  // Inject environment variables directly into the HTML
-  const config = {
-    API_BASE_URL: BASE_URL,
-    API_KEY: API_KEYS[0],
-    ADMIN_USERNAME: ADMIN_USERNAME,
-    ADMIN_PASSWORD: ADMIN_PASSWORD,
-    CURRENT_ENV: CURRENT_ENV,
-    SESSION_TIMEOUT: SESSION_TIMEOUT,
-    ENABLE_AUTH: ENABLE_AUTH,
-    NODE_ENV: NODE_ENV
-  };
-  
-  // Replace placeholder with actual config
-  html = html.replace('<!-- CONFIG_PLACEHOLDER -->', `<script>const SERVER_CONFIG = ${JSON.stringify(config)};</script>`);
-  
-  res.setHeader('Content-Type', 'text/html');
-  res.send(html);
-});
-
 // Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Dashboard available at http://localhost:${PORT}/dashboard`);
-  console.log(`Environment: ${NODE_ENV}`);
-  console.log(`Base URL: ${BASE_URL}`);
-  console.log(`Authentication: ${ENABLE_AUTH ? 'Enabled' : 'Disabled'}`);
 });
