@@ -10,7 +10,7 @@ class LoginManager {
         const config = window.SERVER_CONFIG || {};
 
         // Environment variables
-        const API_BASE_URL = config.API_BASE_URL || 'https://storage.cmsil.org';
+        const API_BASE_URL = config.API_BASE_URL || 'https://storage-storage-rjwajs-6c0281-31-97-60-52.traefik.me';
         const API_KEY = config.API_KEY || '5d92b8f69c9dda89f38c10fa6750376a25b53a9afd47e74951104769630d4ccc';
         const ADMIN_USERNAME = config.ADMIN_USERNAME || 'admin';
         const ADMIN_PASSWORD = config.ADMIN_PASSWORD || 'admin123';
